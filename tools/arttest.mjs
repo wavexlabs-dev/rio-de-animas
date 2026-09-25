@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 800, height: 450 } });
+const logs = [];
+page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text().slice(0, 200)); });
+page.on('pageerror', e => logs.push('PAGEERROR: ' + e.message));
+let reqs = 0; page.on('request', r => { reqs++; if (!r.url().startsWith('http://localhost:8765') && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) logs.push('EXT: ' + r.url()); });
+await page.goto('http://localhost:8765/artifact.html?manual&shot');
+await page.waitForFunction(() => window.__rio, null, { timeout: 300000, polling: 1000 });
+await page.evaluate(() => { const w = window.__rio; w.tod.phase = 0.3; w.boat.reset(820); w.chase.snap(); w.renderFrame(1/30); w.renderFrame(1/30); });
+const url = await page.evaluate(() => window.__rio.r.domElement.toDataURL('image/jpeg', 0.8));
+(await import('fs')).writeFileSync('shots/art_test.jpg', Buffer.from(url.split(',')[1], 'base64'));
+console.log('requests', reqs); console.log([...new Set(logs)].join('\n'));
+await browser.close();

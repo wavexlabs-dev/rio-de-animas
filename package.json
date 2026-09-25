@@ -1,0 +1,23 @@
+{
+  "name": "rio-de-animas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Río de Ánimas: un río de Día de Muertos en 3D en tiempo real (three.js)",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs --web",
+    "build:all": "node build.mjs",
+    "models": "node tools/models.mjs",
+    "serve": "npx --yes http-server public -p 8080 -c-1"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
+    "esbuild": "^0.28.2",
+    "meshoptimizer": "^1.2.0",
+    "playwright": "^1.56.0"
+  }
+}

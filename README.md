@@ -1,0 +1,45 @@
+# Río de Ánimas
+
+Un río de Día de Muertos en 3D que corre en tiempo real en el navegador. Una trajinera remonta el valle a golpe de garrocha: pasa por el embarcadero del pueblo, las catrinas de cartonería, el panteón y el lirio acuático, hasta la cañada y la cascada. El día avanza hacia la tormenta y la noche, cuando se encienden las veladoras y salen las ánimas.
+
+Hecho con [three.js](https://threejs.org) y un pipeline de post-proceso propio (HDR, bloom, rayos de luz, FXAA). La página no lleva texto: solo un cargador gráfico de cempasúchil.
+
+## Controles
+
+| Acción | Tecla |
+| --- | --- |
+| Remar / girar (sin tocar nada va en piloto automático) | `W` `A` `S` `D` o flechas |
+| Adelantar el tiempo (mientras la mantienes) | `Espacio` |
+| Silenciar / activar sonido | `M` |
+| Mirar alrededor | Arrastrar con el mouse o el dedo |
+
+El audio empieza con la primera interacción, como piden los navegadores.
+
+## Correrlo en local
+
+Necesitas Node 20 o más reciente.
+
+```bash
+npm install
+npm run build      # genera public/ (index.html + assets/)
+npm run serve      # http://localhost:8080
+```
+
+`npm run build:all` además genera en `dist/` una versión de un solo archivo (`dist/index.html`, ~30 MB, con todo embebido) que abre sin servidor.
+
+## Publicación
+
+Netlify construye el sitio en cada push a `main` con la configuración de `netlify.toml`: corre `npm run build` y publica la carpeta `public/`.
+
+## Estructura
+
+- `src/`: la escena. `world.js` arma todo y dibuja cada cuadro; `water.js` es el shader del río; `boat.js` la trajinera y el trajinero; `sky.js` y `timeofday.js` el ciclo de día, tormenta y noche; `post.js` el post-proceso.
+- `tex/final/`: texturas ya procesadas (WebP). `tex/*.py` son los scripts que las generaron, incluidos los mapas normales FFT del agua (`waterfft.py`).
+- `tex/models/`: modelos optimizados (mallas en `.bin` con LODs, texturas en WebP). Salen de `tools/models.mjs`, que toma los modelos originales de una carpeta `ph/` que no está en el repo.
+- `tools/`: utilidades de desarrollo (capturas, perfiles, conteo de triángulos) con Playwright.
+
+## Créditos
+
+- Modelos 3D escaneados y texturas: [Poly Haven](https://polyhaven.com) (CC0).
+- La Catrina, el Catrín, el alebrije, el trajinero y la textura de lirio se generaron con IA en Figma Weave (GPT Image y Rodin).
+- Todo lo demás (terreno, arquitectura, vegetación procedural, agua, cielo, audio) es código de este repo.

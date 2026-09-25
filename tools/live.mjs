@@ -1,0 +1,21 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 800, height: 450 } });
+const logs = [];
+page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text().slice(0, 200)); });
+page.on('pageerror', e => logs.push('PAGEERROR: ' + e.message));
+page.on('request', r => { if (!r.url().startsWith('file:') && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) logs.push('REQUEST: ' + r.url().slice(0, 100)); });
+await page.goto('file://' + process.cwd() + '/dist/index.html#t0.62');
+await page.waitForFunction(() => window.__rio, null, { timeout: 300000, polling: 1000 });
+// simulate input: keys + drag + wheel
+await page.waitForTimeout(8000);
+await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(3000); await page.keyboard.up('ArrowLeft');
+await page.keyboard.down('Space'); await page.waitForTimeout(3000); await page.keyboard.up('Space');
+await page.keyboard.press('m');
+await page.mouse.move(400, 225); await page.mouse.down(); await page.mouse.move(500, 250, { steps: 5 }); await page.mouse.up();
+await page.mouse.wheel(0, 300);
+await page.waitForTimeout(20000);
+const st = await page.evaluate(() => { const w = window.__rio; return { scale: w.renderScale, q: w.quality || 0, t: w.time.toFixed(1), phase: w.tod.phase.toFixed(3), u: w.boat.u.toFixed(1), fade: w.fade, text: document.body.innerText.trim().length, grassFar: w.grassFar && w.grassFar.visible }; });
+console.log(JSON.stringify(st));
+console.log([...new Set(logs)].slice(0, 20).join('\n'));
+await browser.close();

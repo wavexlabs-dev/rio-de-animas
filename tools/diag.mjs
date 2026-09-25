@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const [query, js] = process.argv.slice(2);
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 480, height: 270 } });
+page.on('pageerror', e => console.log('PAGEERROR: ' + e.message));
+await page.goto('file://' + process.cwd() + '/dist/index.html?manual&shot&' + query);
+await page.waitForFunction(() => window.__rio, null, { timeout: 300000, polling: 1000 });
+const r = await page.evaluate(js);
+console.log(typeof r === 'string' ? r : JSON.stringify(r, null, 1));
+await browser.close();

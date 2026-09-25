@@ -1,0 +1,13 @@
+node_modules/
+# build outputs (Netlify rebuilds public/ on every push)
+public/
+dist/
+src/assets.gen.js
+# raw asset downloads and intermediate texture work
+ph/
+tex/out/
+tex/final_proc_backup/
+tex/__pycache__/
+tex/sheet*.png
+shots/
+.DS_Store

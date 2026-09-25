@@ -1,0 +1,21 @@
+# Static site: the build bundles src/ with esbuild and writes public/ (index.html + assets/)
+[build]
+  command = "npm run build"
+  publish = "public"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # the dev tools (playwright) are not needed to build the site
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+
+# textures and meshes: cache for a day, revalidate in the background
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

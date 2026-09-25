@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+const logs = [];
+page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text().slice(0, 200)); });
+page.on('pageerror', e => logs.push('PAGEERROR: ' + e.message));
+page.on('requestfailed', r => logs.push('FAILED: ' + r.url().slice(0, 100)));
+await page.goto('http://127.0.0.1:8765/', { timeout: 120000 });
+await page.waitForFunction(() => window.__rio, null, { timeout: 300000, polling: 1000 });
+await page.waitForTimeout(5000);
+const st = await page.evaluate(() => ({ t: document.title, u: window.__rio.boat.u.toFixed(1), txt: document.body.innerText.trim().length, man: !!window.__rio.boat.man.fromMesh && window.__rio.boat.man.mesh.geometry.attributes.position.count }));
+console.log(JSON.stringify(st));
+console.log([...new Set(logs)].slice(0, 15).join('\n'));
+await browser.close();
