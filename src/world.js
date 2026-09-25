@@ -286,9 +286,15 @@ export class World {
         list.push({ x: l.x, y: l.y + 0.1, z: l.z, r: 9, cr: warm[0] * 1.6 * n, cg: warm[1] * 1.6 * n, cb: warm[2] * 1.6 * n, w: 10 / (1 + d * 0.1) });
       }
       const ci = this.churchInterior;
-      list.push({ x: ci.x, y: ci.y, z: ci.z, r: 22, cr: 3.0 * n, cg: 1.7 * n, cb: 0.7 * n, w: 6 });
+      const dc = cp.distanceTo(ci);
+      list.push({ x: ci.x, y: ci.y, z: ci.z, r: 22, cr: 3.0 * n, cg: 1.7 * n, cb: 0.7 * n, w: 6 / (1 + dc * 0.012) });
+      // warm wash on the church facade (the fortress church is the landmark of the night stretch)
+      if (this.churchMatrix) {
+        const fp = this._facadeLight || (this._facadeLight = new THREE.Vector3(-7, 4.5, 0).applyMatrix4(this.churchMatrix));
+        list.push({ x: fp.x, y: fp.y, z: fp.z, r: 24, cr: 2.4 * n, cg: 1.45 * n, cb: 0.7 * n, w: 7 / (1 + cp.distanceTo(fp) * 0.012) });
+      }
       if (this.capillaPos) { const c = this.capillaPos; list.push({ x: c.x, y: c.y, z: c.z, r: 7, cr: 1.2 * n, cg: 0.7 * n, cb: 0.3 * n, w: 3 / (1 + cp.distanceTo(c) * 0.02) }); }
-      for (const pad of L.pant) list.push({ x: pad.x, y: pad.h + 1.2, z: pad.z, r: 18, cr: 2.4 * n, cg: 1.3 * n, cb: 0.5 * n, w: 4 });
+      for (const pad of L.pant) list.push({ x: pad.x, y: pad.h + 1.2, z: pad.z, r: 18, cr: 2.4 * n, cg: 1.3 * n, cb: 0.5 * n, w: 4 / (1 + tmp.set(pad.x, pad.h, pad.z).distanceTo(cp) * 0.012) });
       const bl = this.boat.lanternWorld();
       list.push({ x: bl.x, y: bl.y, z: bl.z, r: 14, cr: 2.2 * n, cg: 1.3 * n, cb: 0.55 * n, w: 100 });
     });
@@ -372,7 +378,7 @@ export class World {
       this.envRT = this.pmrem.fromScene(this.envScene, 0, 1, 1000, { size: 64 });
       this.scene.environment = this.envRT.texture;
     }
-    this.scene.environmentIntensity = lerp(2.1, 1.3, tod.night) * (1 - tod.storm * 0.25);
+    this.scene.environmentIntensity = lerp(2.1, 1.6, tod.night) * (1 - tod.storm * 0.25);
   }
   collectGlow() {
     const cp = this.cam.position;

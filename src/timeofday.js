@@ -44,7 +44,7 @@ function celestial(hourAngle, dec, out) {
 const C = (h) => new THREE.Color(h);
 // keyframes by hour
 const K = [
-  { h: 4.4, zen: '#080d22', hor: '#1f2a4c', glow: '#303a62', sun: '#ff8a4a', hemiS: '#384c84', hemiG: '#1a1c26', hemiI: 0.6, fog: '#1e2646', fogS: '#2a3050', fogD: 0.0016, exp: 1.35, sat: 0.8, con: 1.0, lift: [0.02, 0.025, 0.05], gain: [0.92, 0.98, 1.12], bloom: 0.9, rays: 0.0, mist: 1.0, stars: 1, alpen: 0.0, cloudLit: '#39426a', cloudDark: '#0e1224' },
+  { h: 4.4, zen: '#0b1230', hor: '#2a3864', glow: '#3c4878', sun: '#ff8a4a', hemiS: '#485ea0', hemiG: '#232634', hemiI: 0.82, fog: '#28325a', fogS: '#343c62', fogD: 0.0015, exp: 1.58, sat: 0.88, con: 1.0, lift: [0.024, 0.03, 0.06], gain: [0.92, 0.98, 1.12], bloom: 0.9, rays: 0.0, mist: 0.95, stars: 1, alpen: 0.0, cloudLit: '#46507c', cloudDark: '#0e1224' },
   { h: 5.55, zen: '#16204a', hor: '#5a4f78', glow: '#b06a70', sun: '#ff7a3a', hemiS: '#4a5890', hemiG: '#2a2630', hemiI: 0.6, fog: '#4a4a6c', fogS: '#a8687a', fogD: 0.0017, exp: 1.45, sat: 0.85, con: 1.0, lift: [0.02, 0.02, 0.045], gain: [1.0, 0.96, 1.08], bloom: 0.8, rays: 0.1, mist: 1.0, stars: 0.4, alpen: 0.5, cloudLit: '#c07a8a', cloudDark: '#2c2a48' },
   { h: 6.25, zen: '#3a5a9a', hor: '#e7a07a', glow: '#ffb070', sun: '#ff9a55', hemiS: '#7a8cc0', hemiG: '#4a3a30', hemiI: 0.65, fog: '#b9a09a', fogS: '#ffb486', fogD: 0.0015, exp: 1.3, sat: 1.0, con: 1.02, lift: [0.02, 0.015, 0.03], gain: [1.06, 0.98, 0.94], bloom: 0.7, rays: 0.8, mist: 0.9, stars: 0, alpen: 1.0, cloudLit: '#ffc196', cloudDark: '#6c6078' },
   { h: 7.3, zen: '#4f78bd', hor: '#e8c7a8', glow: '#ffd09a', sun: '#ffc88e', hemiS: '#90a8d8', hemiG: '#5a4a38', hemiI: 0.6, fog: '#c4c0b4', fogS: '#ffd9a8', fogD: 0.0009, exp: 1.08, sat: 1.1, con: 1.06, lift: [0.012, 0.01, 0.018], gain: [1.05, 1.0, 0.94], bloom: 0.55, rays: 0.7, mist: 0.45, stars: 0, alpen: 0.3, cloudLit: '#ffe6c8', cloudDark: '#8a8aa0' },
@@ -54,10 +54,10 @@ const K = [
   { h: 16.25, zen: '#4a6fae', hor: '#dcc6a4', glow: '#ffd8a0', sun: '#ffd6a0', hemiS: '#9aaed4', hemiG: '#6a5438', hemiI: 0.55, fog: '#cdbfa6', fogS: '#ffd49a', fogD: 0.0011, exp: 1.02, sat: 1.06, con: 1.05, lift: [0.015, 0.012, 0.015], gain: [1.05, 1.0, 0.93], bloom: 0.5, rays: 0.6, mist: 0.2, stars: 0, alpen: 0.1, cloudLit: '#ffe8c0', cloudDark: '#8e8698' },
   { h: 17.2, zen: '#4a5f98', hor: '#f0b070', glow: '#ffb45a', sun: '#ffac5c', hemiS: '#8c98c4', hemiG: '#6e4a30', hemiI: 0.55, fog: '#d8a878', fogS: '#ffb060', fogD: 0.00105, exp: 1.0, sat: 1.12, con: 1.08, lift: [0.018, 0.01, 0.012], gain: [1.1, 0.98, 0.86], bloom: 0.7, rays: 1.2, mist: 0.3, stars: 0, alpen: 0.6, cloudLit: '#ffc07a', cloudDark: '#7a6078' },
   { h: 17.95, zen: '#34447e', hor: '#f08a58', glow: '#ff7a3a', sun: '#ff7a40', hemiS: '#6c74a8', hemiG: '#5a3828', hemiI: 0.55, fog: '#b07868', fogS: '#ff8a4a', fogD: 0.0011, exp: 1.2, sat: 1.1, con: 1.05, lift: [0.025, 0.012, 0.02], gain: [1.1, 0.94, 0.9], bloom: 0.9, rays: 1.0, mist: 0.4, stars: 0, alpen: 1.0, cloudLit: '#ff9a6a', cloudDark: '#4a3a5a' },
-  { h: 18.45, zen: '#1e2a5e', hor: '#7a6a9a', glow: '#c07080', sun: '#ff6a40', hemiS: '#4c5a94', hemiG: '#2c2430', hemiI: 0.6, fog: '#4c5078', fogS: '#8a6a86', fogD: 0.0017, exp: 1.4, sat: 0.98, con: 1.02, lift: [0.02, 0.02, 0.045], gain: [0.98, 0.96, 1.1], bloom: 0.95, rays: 0.2, mist: 0.8, stars: 0.35, alpen: 0.4, cloudLit: '#9a7aa0', cloudDark: '#1e2240' },
-  { h: 19.2, zen: '#0a1232', hor: '#2a3662', glow: '#3e4270', sun: '#ff6a40', hemiS: '#3c5090', hemiG: '#1a1a26', hemiI: 0.65, fog: '#202a4e', fogS: '#30385e', fogD: 0.0015, exp: 1.35, sat: 0.86, con: 1.0, lift: [0.02, 0.025, 0.055], gain: [0.94, 0.98, 1.12], bloom: 1.0, rays: 0.0, mist: 0.95, stars: 1, alpen: 0, cloudLit: '#3e4a78', cloudDark: '#0c1024' },
-  { h: 24.0, zen: '#070c22', hor: '#22305a', glow: '#34406e', sun: '#ff6a40', hemiS: '#3e5494', hemiG: '#181a24', hemiI: 0.66, fog: '#1c2648', fogS: '#2c3656', fogD: 0.0015, exp: 1.38, sat: 0.82, con: 1.0, lift: [0.02, 0.025, 0.055], gain: [0.92, 0.98, 1.12], bloom: 1.0, rays: 0.0, mist: 1.0, stars: 1, alpen: 0, cloudLit: '#46557e', cloudDark: '#0a0e20' },
-  { h: 28.4, zen: '#080d22', hor: '#1f2a4c', glow: '#303a62', sun: '#ff8a4a', hemiS: '#384c84', hemiG: '#1a1c26', hemiI: 0.6, fog: '#1e2646', fogS: '#2a3050', fogD: 0.0016, exp: 1.35, sat: 0.8, con: 1.0, lift: [0.02, 0.025, 0.05], gain: [0.92, 0.98, 1.12], bloom: 0.9, rays: 0.0, mist: 1.0, stars: 1, alpen: 0.0, cloudLit: '#39426a', cloudDark: '#0e1224' },
+  { h: 18.45, zen: '#1e2a5e', hor: '#7a6a9a', glow: '#c07080', sun: '#ff6a40', hemiS: '#4c5a94', hemiG: '#2c2430', hemiI: 0.7, fog: '#4c5078', fogS: '#8a6a86', fogD: 0.0017, exp: 1.5, sat: 0.98, con: 1.02, lift: [0.02, 0.02, 0.045], gain: [0.98, 0.96, 1.1], bloom: 0.95, rays: 0.2, mist: 0.8, stars: 0.35, alpen: 0.4, cloudLit: '#9a7aa0', cloudDark: '#1e2240' },
+  { h: 19.2, zen: '#0d1638', hor: '#34447a', glow: '#4a5086', sun: '#ff6a40', hemiS: '#4c64aa', hemiG: '#242634', hemiI: 0.88, fog: '#2a3660', fogS: '#3a446e', fogD: 0.0014, exp: 1.6, sat: 0.92, con: 1.0, lift: [0.024, 0.03, 0.064], gain: [0.94, 0.98, 1.12], bloom: 1.0, rays: 0.0, mist: 0.9, stars: 1, alpen: 0, cloudLit: '#4c5a8c', cloudDark: '#0e1228' },
+  { h: 24.0, zen: '#0b1230', hor: '#2e3e70', glow: '#404e84', sun: '#ff6a40', hemiS: '#4e66ae', hemiG: '#232634', hemiI: 0.9, fog: '#27335e', fogS: '#36406a', fogD: 0.0013, exp: 1.62, sat: 0.9, con: 1.0, lift: [0.024, 0.03, 0.064], gain: [0.92, 0.98, 1.12], bloom: 1.0, rays: 0.0, mist: 0.9, stars: 1, alpen: 0, cloudLit: '#52628e', cloudDark: '#0c1024' },
+  { h: 28.4, zen: '#0b1230', hor: '#2a3864', glow: '#3c4878', sun: '#ff8a4a', hemiS: '#485ea0', hemiG: '#232634', hemiI: 0.82, fog: '#28325a', fogS: '#343c62', fogD: 0.0015, exp: 1.58, sat: 0.88, con: 1.0, lift: [0.024, 0.03, 0.06], gain: [0.92, 0.98, 1.12], bloom: 0.9, rays: 0.0, mist: 0.95, stars: 1, alpen: 0.0, cloudLit: '#46507c', cloudDark: '#0e1224' },
 ];
 const COLK = ['zen', 'hor', 'glow', 'sun', 'hemiS', 'hemiG', 'fog', 'fogS', 'cloudLit', 'cloudDark'];
 const NUMK = ['hemiI', 'fogD', 'exp', 'sat', 'con', 'bloom', 'rays', 'mist', 'stars', 'alpen'];
@@ -106,7 +106,7 @@ export class TimeOfDay {
     const sunUp = smoothstep(-0.035, 0.12, Math.sin(this.sunEl));
     const moonUp = smoothstep(-0.02, 0.2, Math.sin(this.moonEl)) * (1 - smoothstep(-0.12, 0.02, Math.sin(this.sunEl)));
     this.sunI = sunUp * lerp(3.2, 0.25, st) * (0.6 + 0.4 * smoothstep(0.0, 0.5, Math.sin(this.sunEl)));
-    this.moonI = moonUp * 0.5 * (1 - st * 0.8);
+    this.moonI = moonUp * 0.9 * (1 - st * 0.8);
     this.night = 1 - smoothstep(-0.16, 0.02, Math.sin(this.sunEl));
     this.dusk = smoothstep(-0.1, 0.04, Math.sin(this.sunEl)) * (1 - smoothstep(0.04, 0.2, Math.sin(this.sunEl)));
     if (this.sunI > this.moonI * 1.2 || this.sunEl > -0.05) {
@@ -115,7 +115,7 @@ export class TimeOfDay {
       this.keyIsSun = true;
     } else {
       this.keyDir.copy(this.moonDir);
-      this.keyCol.setRGB(0.62, 0.72, 1.0).multiplyScalar(this.moonI);
+      this.keyCol.setRGB(0.66, 0.76, 1.0).multiplyScalar(this.moonI);
       this.keyIsSun = false;
     }
     // prevent shadows from grazing below horizon

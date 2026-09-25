@@ -59,6 +59,22 @@ export function extraCandles(world) {
   }
   // steps
   for (const s of world.stepPetals.filter((_, i) => i % 3 === 0)) world.candles.push({ x: s.x, y: s.y - 0.03, z: s.z, h: 0.1 + r() * 0.08 });
+  // the fortress wall of the atrium: veladoras along its foot and on the parapet between the merlons
+  if (world.atriumMatrix) {
+    const at = L.atrium, M = world.atriumMatrix, stepZ = at.u - L.steps.u;
+    const v = new THREE.Vector3();
+    for (let z = -at.hu + 0.8; z <= at.hu - 0.8; z += 1.5) {
+      if (Math.abs(z - stepZ) < 5.2) continue;
+      for (let k = 0; k < 2; k++) {
+        v.set(-at.hd - 2.6 - r() * 0.9, 0, z + (r() - 0.5) * 0.9).applyMatrix4(M);
+        world.candles.push({ x: v.x, y: terrainH(v.x, v.z) + 0.02, z: v.z, h: 0.1 + r() * 0.12 });
+      }
+      if (r() < 0.8) {
+        v.set(-at.hd, at.y + 1.16, z + (r() - 0.5) * 0.4).applyMatrix4(M);
+        world.candles.push({ x: v.x, y: v.y, z: v.z, h: 0.08 + r() * 0.08 });
+      }
+    }
+  }
   // atrial cross base
   if (world.crossPos) for (let k = 0; k < 14; k++) { const a = k / 14 * 6.28; world.candles.push({ x: world.crossPos.x + Math.cos(a) * 1.6, y: world.crossPos.y + 0.02, z: world.crossPos.z + Math.sin(a) * 1.6, h: 0.1 + r() * 0.1 }); }
   // landing

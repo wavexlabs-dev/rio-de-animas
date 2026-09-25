@@ -97,7 +97,8 @@ vec3 glowIrradiance(vec3 wpos, vec3 nW) {
     float d = sqrt(d2);
     L /= max(d, 1e-3);
     float fall = 1.0 - d / r;
-    float att = fall * fall / (1.0 + d2 * 0.6);
+    // tight core near the flame plus a soft wide spill, so candles and lanterns light what is around them
+    float att = fall * fall * (1.0 / (1.0 + d2 * 0.6) + 0.12 / (1.0 + d2 * 0.04));
     acc += uGlowCol[i] * att * (max(dot(nW, L), 0.0) * 0.85 + 0.15);
   }
   return acc;
