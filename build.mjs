@@ -88,9 +88,9 @@ if (!WEB) {
   for (const [src, dst] of list) fs.copyFileSync(src, path.join('dist', dst));
   fs.writeFileSync('dist/assets.json', JSON.stringify(Object.fromEntries(list.map(([src, dst]) => [dst, 'dist/' + dst]))));
 }
-// public web build (Netlify / any static host): full HTML document + the same asset files next to it
-// Netlify exposes the site's main URL at build time; social cards need an absolute image URL
-const SITE = (process.env.URL || '').replace(/\/$/, '');
+// public web build (Vercel, Netlify or any static host): full HTML document + the same asset files next to it
+// the host's production URL at build time (Vercel or Netlify); social cards need an absolute image URL
+const SITE = (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : process.env.URL || '').replace(/\/$/, '');
 const META = `<title>Río de Ánimas</title>
 <meta name="description" content="Un río de Día de Muertos en 3D: una trajinera remonta el valle entre catrinas, veladoras y cempasúchil, del amanecer a la noche.">
 <meta name="theme-color" content="#07081a">

@@ -29,7 +29,7 @@ npm run serve      # http://localhost:8080
 
 ## Publicación
 
-Netlify construye el sitio en cada push a `main` con la configuración de `netlify.toml`: corre `npm run build` y publica la carpeta `public/`.
+Vercel construye el sitio en cada push a `main` con la configuración de `vercel.json`: corre `npm run build` y publica la carpeta `public/`. `netlify.toml` deja lista la misma configuración por si algún día se mueve a Netlify.
 
 ## Estructura
 
