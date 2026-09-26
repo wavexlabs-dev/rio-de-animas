@@ -1,18 +1,19 @@
-// Footage director: paste into the page (the story build) to render a ~79 s montage frame by frame and
+// Teaser director: paste into the page (the story build) to render a ~71 s montage frame by frame and
 // encode it to MP4 with WebCodecs (hardware H.264) + mp4-muxer. Drive it with __dir.run() (poll __dir.status()), then __dir.finish().
+// With window.__peek set it only builds the shot list (tools/teaserpeek.mjs renders single frames of each shot headless).
 (async () => {
   const w = window.__rio, s = w.story, T = w.THREE;
-  const { Muxer, ArrayBufferTarget } = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5/+esm');
+  const peek = !!window.__peek;
+  const { Muxer, ArrayBufferTarget } = peek ? {} : await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5/+esm');
   const W = 1920, H = 1080, FPS = 30, DT = 1 / FPS;
-  window.innerWidth = W; window.innerHeight = H;
-  w.maxDpr = 1;
+  if (!peek) { window.innerWidth = W; window.innerHeight = H; w.maxDpr = 1; }
   const RF = w.__RF || (w.__RF = w.renderFrame.bind(w));
-  w.renderFrame = () => {};
+  if (!peek) w.renderFrame = () => {};
   const V = (x, y, z) => new T.Vector3(x, y, z);
   const hot = s.hot;
   s.reset(); s.auto = false;
   const tap = (k) => () => s.play(hot[k], false);
-  const vel = (ax, dd) => () => { const b = w.boat; const p = b.pos.clone().addScaledVector(b.fwd, ax); p.x += -b.fwd.z * dd; p.z += b.fwd.x * dd; p.y = 0.03; s.vel.place(p); };
+  const drop = () => { for (let k = 0; k < 4 && !s.dropVeladora(); k++); };
   const strike = () => w.lightning && w.lightning.strike();
   const reset = (u, ph, o = {}) => {
     w.debugCam = false; s.comp.clear(); s.vel.clear();
@@ -59,18 +60,25 @@
     w.cam.position.copy(b.pos).addScaledVector(b.fwd, -3).add(V(0, 3.4, 0));
     w.cam.lookAt(tgt); w.shadowTarget = tgt.clone();
   };
+  // around the trajinera, in its own frame (+z = bow): an arc in front of the painted arch
+  const orbit = (p0, p1, look) => (t, dur) => {
+    const e = t / dur, k2 = e * e * (3 - 2 * e), g = w.boat.group;
+    g.updateMatrixWorld(true);
+    const P = V(...p0).lerp(V(...p1), k2).applyMatrix4(g.matrixWorld), L = V(...look).applyMatrix4(g.matrixWorld);
+    w.debugCam = true; w.cam.position.copy(P); w.cam.lookAt(L); w.shadowTarget = L.clone();
+  };
   const shots = [
-    { dur: 8, fadeIn: 1.2, setup: () => reset(22, 0.600) },
-    { dur: 7, setup: () => reset(hot[0].u - 14, 0.645), cam: across(0, 9, 1.2, 0.2, -2, 2), ev: [[2.2, tap(0)]] },
-    { dur: 7, setup: () => reset(hot[1].u - 12, 0.692), cam: across(1, 7, 0.9, -0.1, 1.5, -1.5), ev: [[1.2, tap(1)]] },
-    { dur: 6, setup: () => reset(206, 0.772) },
-    { dur: 8, setup: () => reset(250, 0.846), cam: church(), ev: [[0.8, tap(2)], [4.3, tap(3)]] },
-    { dur: 7, setup: () => reset(300, 0.87), ev: [[0.4, vel(9, -3.5)], [1.3, vel(12, 4)], [2.2, vel(7, 3)], [3.1, vel(14, -5)], [4.0, vel(10, 1.5)]] },
-    { dur: 7, setup: () => reset(hot[4].u - 10, 0.012), cam: across(4, 6.5, 1.2, 0.3, 1.8, -0.6), ev: [[1.0, tap(4)]] },
-    { dur: 6, setup: () => reset(492, 0.075, { bring: 14 }) },
-    { dur: 6, setup: () => reset(hot[5].u - 16, 0.19), cam: across(5, 13, 5.5, 2.0, -2.5, -0.5), ev: [[1.2, tap(5)]] },
-    { dur: 6, setup: () => reset(840, 0.47, { wet: 0.8 }), ev: [[2.2, strike], [4.5, strike]] },
-    { dur: 10, fadeOut: 1.8, setup: () => reset(1034, 0.565, { bring: 26 }) },
+    { name: 'apertura', dur: 6, fadeIn: 1.2, setup: () => reset(22, 0.600) },
+    { name: 'lupita', dur: 6, setup: () => reset(34, 0.62), cam: orbit([3.2, 2.0, 6.6], [-2.4, 1.8, 7.0], [0, 1.4, 1.6]) },
+    { name: 'ofrenda', dur: 6, setup: () => reset(hot[0].u - 14, 0.645), cam: across(0, 9, 1.2, 0.2, -2, 2), ev: [[1.8, tap(0)]] },
+    { name: 'nina', dur: 7, setup: () => reset(hot[1].u - 12, 0.69), cam: across(1, 4.0, 0.7, 0.25, 0.9, -0.9), ev: [[1.0, tap(1)]] },
+    { name: 'iglesia', dur: 8, setup: () => reset(250, 0.846), cam: church(), ev: [[0.8, tap(2)], [4.3, tap(3)]] },
+    { name: 'veladoras', dur: 7, setup: () => reset(300, 0.87), ev: [[0.4, drop], [1.8, drop], [3.2, drop], [4.6, drop]] },
+    { name: 'tumba', dur: 6, setup: () => reset(hot[4].u - 10, 0.012), cam: across(4, 6.5, 1.2, 0.3, 1.8, -0.6), ev: [[0.8, tap(4)]] },
+    { name: 'amanecer', dur: 5, setup: () => reset(492, 0.075, { bring: 14 }) },
+    { name: 'monarcas', dur: 6, setup: () => reset(hot[5].u - 16, 0.19), cam: across(5, 13, 5.5, 2.0, -2.5, -0.5), ev: [[1.2, tap(5)]] },
+    { name: 'tormenta', dur: 5, setup: () => reset(840, 0.47, { wet: 0.8 }), ev: [[1.6, strike], [3.8, strike]] },
+    { name: 'cascada', dur: 9, fadeOut: 1.8, setup: () => reset(1034, 0.565, { bring: 26 }) },
   ];
   const PRE = 45, FADE = 0.35;
   const steps = [];
@@ -80,6 +88,8 @@
     for (let i = 0; i < n; i++) steps.push([si, 1, i]);
   });
   const total = steps.filter((x) => x[1] === 1).length;
+  const PREs = PRE;
+  if (peek) { window.__dir = { shots, PRE: PREs, FPS, FADE }; return { shots: shots.map((x) => x.name), total }; }
   const muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H }, fastStart: 'in-memory' });
   const D = { i: 0, frame: 0, total, err: null, ms: 0 };
   const enc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: (e) => { D.err = String(e); } });
@@ -124,7 +134,7 @@
     return D.status();
   };
   D.status = () => ({ frame: D.frame, total, i: D.i, of: steps.length, q: enc.encodeQueueSize, ms: D.ms, err: D.err, size: w.r.domElement.width + 'x' + w.r.domElement.height, running: D.running });
-  D.finish = async (name = 'rio-de-animas-footage.mp4') => {
+  D.finish = async (name = 'rio-de-animas-teaser.mp4') => {
     await enc.flush();
     muxer.finalize();
     const buf = muxer.target.buffer;
