@@ -44,5 +44,5 @@ Vercel construye el sitio en cada push a `main` con la configuración de `vercel
 ## Créditos
 
 - Modelos 3D escaneados y texturas: [Poly Haven](https://polyhaven.com) (CC0).
-- La Catrina, el Catrín, el alebrije, el trajinero y la textura de lirio se generaron con IA en Figma Weave (GPT Image y Rodin).
+- La Catrina, el Catrín, el alebrije, el trajinero, la abuela, la niña y la textura de lirio se generaron con IA en Figma Weave (GPT Image y Rodin).
 - Todo lo demás (terreno, arquitectura, vegetación procedural, agua, cielo, audio) es código de este repo.

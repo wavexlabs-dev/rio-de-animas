@@ -263,10 +263,30 @@ export class Character {
   fromMesh(opts) {
     const geo = opts.geo;
     const { J, neckY } = opts.fit || fitJoints(geo);
-    this.J = J; this.scale = 1; this.hipY = J.hips.y;
+    this.J = J; this.scale = 1; this.hipY = J.hips.y; this.scanned = true;
     autoSkin(geo, segments(J, 1), 0.035);
-    // hat and head move rigidly with the head bone
     const p = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+    // keep skirt, rebozo and torso off the arm bones: whatever lies inward of the arm line is body
+    const armB = new Set(['shL', 'elL', 'wrL', 'shR', 'elR', 'wrR'].map((n) => BI[n]));
+    const chain = { L: [J.shL, J.elL, J.wrL, J.haL], R: [J.shR, J.elR, J.wrR, J.haR] };
+    const armX = (c, y) => {
+      if (y >= c[0].y) return Math.abs(c[0].x);
+      for (let i = 0; i < c.length - 1; i++) {
+        const a = c[i], b = c[i + 1];
+        if (y <= a.y && y >= b.y) { const t = (a.y - y) / (a.y - b.y || 1); return Math.abs(a.x + (b.x - a.x) * t); }
+      }
+      return Math.abs(c[c.length - 1].x);
+    };
+    const segD = (q, a, b) => { const ab = b.clone().sub(a), t = clamp(q.clone().sub(a).dot(ab) / ab.lengthSq(), 0, 1); return q.distanceTo(a.clone().addScaledVector(ab, t)); };
+    const q = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      if (!armB.has(si.getX(i))) continue;
+      const x = p.getX(i), y = p.getY(i), c = chain[x >= 0 ? 'L' : 'R'];
+      q.set(x, y, p.getZ(i));
+      const dArm = Math.min(segD(q, c[0], c[1]), segD(q, c[1], c[2]), segD(q, c[2], c[3]) - 0.03);
+      if (Math.abs(x) < armX(c, y) - 0.045 || dArm > 0.085) { si.setXYZW(i, y > J.spine.y ? BI.chest : BI.hips, 0, 0, 0); sw.setXYZW(i, 1, 0, 0, 0); }
+    }
+    // hat and head move rigidly with the head bone
     for (let i = 0; i < p.count; i++) if (p.getY(i) > neckY + 0.045) { si.setXYZW(i, BI.head, 0, 0, 0); sw.setXYZW(i, 1, 0, 0, 0); }
     this.bones = makeSkeleton(J, 1);
     this.skeleton = new THREE.Skeleton(this.bones);

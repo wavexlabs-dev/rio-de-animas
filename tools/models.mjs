@@ -53,6 +53,8 @@ const JOBS = {
   catrin_w: { lod0: 24000, lod1: 5000, tex: 1024, mrAO: false, permissive: true },
   alebrije_w: { lod0: 24000, lod1: 5000, tex: 1024, mrAO: false, permissive: true },
   trajinero_w: { lod0: 16000, lod1: 4000, tex: 1024, mrAO: false, permissive: true },
+  abuela_w: { lod0: 14000, lod1: 3500, tex: 1024, mrAO: false, permissive: true },
+  nina_w: { lod0: 12000, lod1: 3000, tex: 1024, mrAO: false, permissive: true },
 };
 
 

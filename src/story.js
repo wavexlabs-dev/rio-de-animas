@@ -10,7 +10,8 @@ import { R, toWorld, toUD, halfW, terrainH } from './river.js';
 import { L } from './layout.js';
 import { Batch, box, cylinder, arcPts, tubeAlong } from './archkit.js';
 import { buildCandles, flowerCards } from './decor.js';
-import { Character } from './characters.js';
+import { Character, fitJoints } from './characters.js';
+import { scannedParts, scannedMat, hasModel } from './scanned.js';
 import { wingGeo } from './life.js';
 
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -24,6 +25,20 @@ function lookAt(c, p, w = 1, maxYaw = 1.1) {
   const pitch = clamp(Math.atan2(l.y - hy, Math.hypot(l.x, l.z)), -0.6, 0.7) * w;
   c.b.neck.rotateY(yaw * 0.45); c.b.head.rotateY(yaw * 0.55);
   c.b.head.rotateX(-pitch * 0.7);
+}
+
+// a generated (Weave / Rodin) person, A-pose, scaled to a body height, with its fitted joints — or null
+function scanPerson(name, height) {
+  if (!hasModel(name)) return null;
+  const parts = scannedParts(name, { whole: true });
+  if (!parts.length) return null;
+  const geo = parts[0].lod[0];
+  let fit = fitJoints(geo);
+  const k = height / fit.Hb;
+  geo.scale(k, k, k);
+  geo.computeBoundingBox(); geo.computeBoundingSphere();
+  fit = fitJoints(geo);
+  return { geo, fit, mat: scannedMat(name, { roughness: 0.85, porosity: 0.5 }) };
 }
 
 function instGeo(base, attrs, count) {
@@ -516,8 +531,8 @@ export class Story {
   familia() {
     const w = this.w;
     const S = bankSpot(w, 104, 1, { claim: 2.4, e0: 0.6, e1: 2.4 });
-    const abuela = new Character({ female: true, skirt: true, rebozo: true, scale: 0.84, res: 0.026, skin: [0.44, 0.29, 0.2], shirt: [0.9, 0.88, 0.84], skirtCol: [0.12, 0.12, 0.2], embroid: true, hair: [0.7, 0.68, 0.66], hipW: 0.088, shoulder: 0.17 });
-    const nina = new Character({ female: true, skirt: true, scale: 0.62, res: 0.03, skin: [0.47, 0.31, 0.21], shirt: [0.95, 0.75, 0.2], skirtCol: [0.75, 0.1, 0.4], embroid: true, hair: [0.04, 0.03, 0.03], hipW: 0.08, shoulder: 0.16 });
+    const abuela = new Character(scanPerson('abuela_w', 1.5) || { female: true, skirt: true, rebozo: true, scale: 0.84, res: 0.026, skin: [0.44, 0.29, 0.2], shirt: [0.9, 0.88, 0.84], skirtCol: [0.12, 0.12, 0.2], embroid: true, hair: [0.7, 0.68, 0.66], hipW: 0.088, shoulder: 0.17 });
+    const nina = new Character(scanPerson('nina_w', 1.18) || { female: true, skirt: true, scale: 0.62, res: 0.03, skin: [0.47, 0.31, 0.21], shirt: [0.95, 0.75, 0.2], skirtCol: [0.75, 0.1, 0.4], embroid: true, hair: [0.04, 0.03, 0.03], hipW: 0.08, shoulder: 0.16 });
     const place = (c, x, z, rot) => { const p = S.at(x, 0, z); p.y = terrainH(p.x, p.z) + 0.01; c.group.position.copy(p); c.group.rotation.y = S.rot + rot; w.scene.add(c.group); };
     place(abuela, -0.38, -0.1, 0.25);
     place(nina, 0.32, 0.12, -0.15);
@@ -537,7 +552,7 @@ export class Story {
     gc.forEach((p) => { p.y = terrainH(p.x, p.z) + 0.01; });
     const gcs = candleSet(w, gc);
     w.updaters.push(() => { gcs.mat.uniforms.uOn.value = Math.min(1, w.tod.night + w.tod.dusk * 0.9 + 0.25); });
-    const V = { S, t: -1, n: 0, pt: -1, left: 0 };
+    const V = { S, t: -1, n: 0, pt: -1, left: 0, chars: [abuela, nina] };
     V.glow = (list, cp) => { const I = Math.min(1, w.tod.night + w.tod.dusk + 0.3) * 0.8; const g = S.at(0, 0.9, 0.35); list.push({ x: g.x, y: g.y, z: g.z, r: 6, cr: 1.6 * I, cg: 0.9 * I, cb: 0.4 * I, w: 12 / (1 + cp.distanceTo(g) * 0.1) }); };
     const hot = this.addHot({ p: S.at(0, 1.0, 0), r: 1.4, u: S.u, win: [4, 20], hold: 4.2, fn: () => { V.t = 0; V.n++; V.left = 2; } });
     const upq = toWorld(S.u + 40, 0), up = V3(upq.x, 6, upq.z);
@@ -582,8 +597,12 @@ export class Story {
       abuela.ik2(ab.shL, ab.elL, ab.wrL, nina.worldPos(nb.shR).add(V3(0, 0.04, 0)), V3(0.6, 0.9, -0.4).applyMatrix4(MA));
       const pointing = V.t >= 0 && V.t < 3.8 ? smoothstep(0.25, 0.9, V.t) * (1 - smoothstep(3.0, 3.8, V.t)) : 0;
       const sh = abuela.worldPos(ab.shR);
-      const aimP = sh.clone().addScaledVector(V3().subVectors(up, sh).normalize(), 0.52);
-      abuela.ik2(ab.shR, ab.elR, ab.wrR, V3(-0.22, 0.7, 0.12).applyMatrix4(MA).lerp(aimP, pointing), V3(-0.6, 0.6, -0.5).applyMatrix4(MA));
+      // she points upriver from the elbow (the upper arm stays close to her side, as an old woman would)
+      const dUp = V3().subVectors(up, sh); dUp.y = 0; dUp.normalize();
+      const aimP = sh.clone().addScaledVector(dUp, 0.36).add(V3(0, -0.12, 0));
+      const restR = abuela.scanned ? abuela.J.wrR.clone().applyMatrix4(MA) : V3(-0.22, 0.7, 0.12).applyMatrix4(MA);
+      const poleR = V3(-0.6, 0.6, -0.5).lerp(V3(-0.4, -0.5, -0.4), abuela.scanned ? 1 : pointing).applyMatrix4(MA);
+      abuela.ik2(ab.shR, ab.elR, ab.wrR, restR.lerp(aimP, pointing), poleR);
       // both follow the trajinera with their eyes as it goes by; the grandmother looks upriver when she points
       lookAt(abuela, pointing > 0.3 ? up : b.pos.clone().setY(1.5), Math.max(near, pointing));
       lookAt(nina, V.t >= 0 && V.t < 1.4 ? inB.clone().lerp(mid, smoothstep(0.5, 0.9, V.t)) : b.pos.clone().setY(1.5), V.t >= 0 && V.t < 1.4 ? 0.8 : near);

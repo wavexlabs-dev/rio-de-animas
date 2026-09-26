@@ -1,0 +1,31 @@
+// Close frames of the family scene (grandmother + girl) and the grave: shots/fam/<name>.jpg
+import { chromium } from 'playwright';
+import fs from 'fs';
+const W = +(process.env.W || 960), H = +(process.env.H || 540);
+fs.mkdirSync('shots/fam', { recursive: true });
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
+const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+const logs = [];
+page.on('pageerror', (e) => logs.push('PAGEERROR ' + e.message));
+page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.text().slice(0, 300)); });
+await page.goto('file://' + process.cwd() + '/dist/index.html?manual&shot&t=0.66', { timeout: 180000 });
+await page.waitForFunction(() => window.__rio && window.__rio.story && window.__rio.story.ready, null, { timeout: 300000, polling: 1000 });
+const step = (n) => page.evaluate((n) => { const w = window.__rio; for (let i = 0; i < n; i++) { w.time += 1 / 30; w.tod.update(1 / 30); w.boat.update(1 / 30, w.input, w.time); for (const f of w.updaters) f(1 / 30, w.time); } }, n);
+const cam = (k, dist, up, side, lookY) => page.evaluate(([k, dist, up, side, lookY]) => {
+  const w = window.__rio, T = w.THREE, h = w.story.hot[k];
+  const dir = w.boat.pos.clone().sub(h.p); dir.y = 0; dir.normalize();
+  const lat = new T.Vector3(-dir.z, 0, dir.x);
+  w.debugCam = true;
+  w.cam.position.copy(h.p).addScaledVector(dir, dist).addScaledVector(lat, side); w.cam.position.y = h.p.y + up;
+  const L = h.p.clone(); L.y += lookY; w.cam.lookAt(L); w.shadowTarget = L;
+}, [k, dist, up, side, lookY]);
+const shot = async (name) => { const url = await page.evaluate(() => { const w = window.__rio; w.renderFrame(1 / 60); return w.r.domElement.toDataURL('image/jpeg', 0.88); }); fs.writeFileSync(`shots/fam/${name}.jpg`, Buffer.from(url.split(',')[1], 'base64')); console.log('shot', name); };
+await page.evaluate(() => { const w = window.__rio, s = w.story; s.auto = false; s.reset(); w.tod.phase = 0.672; w.boat.reset(s.hot[1].u - 14); w.envTimer = 0; });
+await step(10);
+await cam(1, 3.2, 0.2, 0.6, -0.3); await shot('reposo');
+await page.evaluate(() => { const s = window.__rio.story; s.play(s.hot[1]); });
+await step(26); await cam(1, 3.2, 0.2, 0.6, -0.3); await shot('lanza');
+await step(24); await cam(1, 3.2, 0.2, 0.6, -0.3); await shot('senala');
+await cam(1, 6.5, 0.8, -1.5, -0.2); await shot('lejos');
+console.log([...new Set(logs)].slice(0, 20).join('\n'));
+await browser.close();
