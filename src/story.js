@@ -48,6 +48,15 @@ function bankSpot(world, u0, side, o = {}) {
       let block = 0;
       if (world.blockers.hit(P.x, P.z, clear)) block += 1;
       if (world.blockers.hit(P.x, P.z, clear * 0.5)) block += 2;
+      // keep out from under tree crowns, and keep the view from the river open
+      const Q = toWorld(u, d - side * 4);
+      for (const c of world.canopies || []) {
+        const dx = c.x - P.x, dz = c.z - P.z;
+        if (dx * dx + dz * dz > 900) continue;
+        const d1 = Math.hypot(dx, dz), d2 = Math.hypot(c.x - Q.x, c.z - Q.z);
+        if (d1 < c.r + 1.5) block += (c.r + 1.5 - d1) * 0.7;
+        if (d2 < c.r + 1) block += (c.r + 1 - d2) * 0.5;
+      }
       const score = s * 4 + block * 5 + Math.abs(du) * 0.06 + e * 0.15;
       if (score < best.score) Object.assign(best, { score, u, d, x: P.x, z: P.z, y: h });
     }
@@ -749,7 +758,7 @@ export class Story {
           vec3 f = normalize(vec3(sin(iD.x * 7.0), 0.0, cos(iD.x * 7.0)));
           vec3 rt = normalize(cross(vec3(0.0, 1.0, 0.0), f)); vec3 up = cross(f, rt);
           vec3 lp = vec3(position.x * cos(ang), abs(position.x) * sin(ang) * aSide, position.z);
-          vec3 wp = iP.xyz + (rt * lp.x + up * lp.y + f * -lp.z) * 0.09;
+          vec3 wp = iP.xyz + (rt * lp.x + up * lp.y + f * -lp.z) * 0.12;
           vW = wp; vUv = vec2(uv.x, 1.0 - uv.y); vL = 1.0;
           gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
           if (distance(wp, cameraPosition) > 110.0) gl_Position = vec4(2.0);
