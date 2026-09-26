@@ -34,5 +34,13 @@ for (const [name, v] of views) {
   fs.writeFileSync(`shots/boat/${name}.jpg`, Buffer.from(url.split(',')[1], 'base64'));
   console.log('shot', name);
 }
+// the side view through one pole stroke (the pole must stay clear of the roof)
+if (process.env.STROKE) for (let k = 0; k < 5; k++) {
+  await page.evaluate(() => { const w = window.__rio; w.debugCam = false; for (let i = 0; i < 15; i++) { w.time += 1 / 30; w.tod.update(1 / 30); w.boat.update(1 / 30, w.input, w.time); for (const f of w.updaters) f(1 / 30, w.time); } });
+  await page.evaluate(() => { const w = window.__rio, T = w.THREE, g = w.boat.group; w.debugCam = true; g.updateMatrixWorld(true); w.cam.position.copy(new T.Vector3(7.5, 2.4, -1.2).applyMatrix4(g.matrixWorld)); const L = new T.Vector3(0, 1.2, -1.5).applyMatrix4(g.matrixWorld); w.cam.lookAt(L); w.shadowTarget = L.clone(); });
+  const url = await page.evaluate(() => { const w = window.__rio; w.renderFrame(1 / 60); return w.r.domElement.toDataURL('image/jpeg', 0.85); });
+  fs.writeFileSync(`shots/boat/stroke${k}.jpg`, Buffer.from(url.split(',')[1], 'base64'));
+  console.log('stroke', k, await page.evaluate(() => +window.__rio.boat.phase.toFixed(2)));
+}
 console.log([...new Set(logs)].slice(0, 20).join('\n'));
 await browser.close();

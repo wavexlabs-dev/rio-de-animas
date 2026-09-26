@@ -24,8 +24,8 @@ function trajineroMesh() {
 }
 
 export const HULL = { L: 8.6, hb0: 0.95 };
-// where the trajinero stands (boat-local z): on the bow deck, ahead of the painted arch
-const BOW = 3.5;
+// where the trajinero stands (boat-local z): on the stern deck, behind the roof, where the camera can see him
+const BOW = -3.45;
 export function hb(z) { return 0.95 - 0.23 * Math.pow(z / 4.3, 2); }
 export function yb(z) { return -0.3 + 0.17 * smoothstep(0.55, 1, Math.abs(z) / 4.3); }
 export function yg(z) { return 0.42 + 0.07 * Math.pow(z / 4.3, 2); }
@@ -156,7 +156,8 @@ export function buildBoatMesh() {
   }
   // ---- a Xochimilco trajinera: painted floor, table and chairs under a lona roof, the name on the arch at the bow
   const FLOOR = 0.02, DECK = 0.2, ROOF = 1.95, CROWN = 0.3, SIGN_Z = 2.83;
-  const POSTS = [2.8, 1.45, 0.05, -1.35, -2.85];
+  // the roof stops short of the stern so the trajinero's pole clears it
+  const POSTS = [2.8, 1.45, 0.1, -1.05, -2.2];
   // painted floor between the decks (UV: u across, v along)
   const shaped = (z0, z1, y, inset, nz = 24) => {
     const pos = [], uv = [], idx = [];
@@ -193,7 +194,7 @@ export function buildBoatMesh() {
   }
   // lona roof: an arched sheet that sags a little between the beams, with a valance all round
   {
-    const rw = 1.04, z0 = -3.02, z1 = SIGN_Z - 0.03, nz = 46, nx = 18;
+    const rw = 1.04, z0 = -2.22, z1 = SIGN_Z - 0.03, nz = 40, nx = 18;
     const pos = [], uv = [], col = [], idx = [];
     for (let i = 0; i <= nz; i++) {
       const z = z0 + (z1 - z0) * i / nz;
@@ -235,7 +236,7 @@ export function buildBoatMesh() {
     for (const s of [-1, 1]) B.add('paintw', box(0.024, sp - y0, 0.024, s * (sw / 2 - 0.012), y0, SIGN_Z), null, { uvScale: 1, color: [0.9, 0.7, 0.1] });
   }
   // long table down the middle and wooden chairs facing it
-  const TOP = FLOOR + 0.72, tz0 = -2.5, tz1 = 2.05, tw = 0.6;
+  const TOP = FLOOR + 0.72, tz0 = -1.95, tz1 = 2.05, tw = 0.6;
   B.add('paintw', box(tw, 0.04, tz1 - tz0, 0, TOP - 0.04, (tz0 + tz1) / 2), null, { uvScale: 1.4, color: [0.98, 0.8, 0.12] });
   for (const s of [-1, 1]) B.add('paintw', box(0.03, 0.09, tz1 - tz0 - 0.1, s * (tw / 2 - 0.04), TOP - 0.13, (tz0 + tz1) / 2), null, { uvScale: 1.4, color: [0.12, 0.42, 0.82] });
   for (const z of [tz0 + 0.12, (tz0 + tz1) / 2, tz1 - 0.12]) for (const s of [-1, 1]) B.add('paintw', box(0.05, TOP - 0.04 - FLOOR, 0.05, s * (tw / 2 - 0.08), FLOOR, z), null, { uvScale: 1.4, color: [0.12, 0.42, 0.82] });
@@ -250,7 +251,7 @@ export function buildBoatMesh() {
     for (const yy of [0.2, 0.42]) B.add('paintw', box(0.03, 0.06, cw - 0.02, x + s * (cd / 2 - 0.02), SY + yy, z), null, { uvScale: 2, color: yy > 0.3 ? [0.98, 0.8, 0.14] : frame });
     B.add('paintw', box(0.02, 0.02, cw - 0.04, x - s * (cd / 2 - 0.02), FLOOR + 0.14, z), null, { uvScale: 2, color: frame });
   };
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 6; i++) {
     const z = tz0 + 0.3 + i * 0.64;
     chair(0.56, z, 1, i % 2 ? [0.12, 0.42, 0.82] : [0.84, 0.14, 0.12]);
     chair(-0.56, z + 0.05, -1, i % 2 ? [0.84, 0.14, 0.12] : [0.12, 0.42, 0.82]);
@@ -273,7 +274,7 @@ export function buildBoatMesh() {
       flowers.push({ p: new THREE.Vector3(x + Math.cos(a) * rr, TOP + 0.37 * s + 0.08 + rand() * 0.14, z + Math.sin(a) * rr), n: new THREE.Vector3(Math.cos(a) * 0.5, 1, Math.sin(a) * 0.5).normalize() });
     }
   };
-  olla(0, 1.55, 0.55, 'clay'); olla(0, -0.2, 0.6, 'glaze'); olla(0, -2.05, 0.5, 'clay');
+  olla(0, 1.55, 0.55, 'clay'); olla(0, -0.1, 0.6, 'glaze'); olla(0, -1.65, 0.5, 'clay');
   const plate = (z, fill) => {
     B.add('clay', cylinder(0.13, 0.1, 0.02, 14, 0, TOP, z), null, { color: [1.0, 0.85, 0.7] });
     for (let k = 0; k < 5; k++) {
@@ -284,7 +285,7 @@ export function buildBoatMesh() {
       B.add('fruit', sp, null, { color: fill === 'bread' ? [0.62, 0.38, 0.18] : [0.95, 0.5, 0.08] });
     }
   };
-  plate(0.75, 'bread'); plate(-1.1, 'orange'); plate(0.35, 'orange'); plate(-1.5, 'bread');
+  plate(0.75, 'bread'); plate(-0.95, 'orange'); plate(0.35, 'orange'); plate(-1.3, 'bread');
   // petals on the floor and the bow deck
   for (let k = 0; k < 24; k++) flowers.push({ p: new THREE.Vector3((rand() - 0.5) * 1.2, FLOOR + 0.015, -2.9 + rand() * 5.6), n: new THREE.Vector3(0, 1, 0) });
   // coiled rope on the stern deck
@@ -347,16 +348,16 @@ export class Boat {
       this.man.b.chest.add(this.cape);
       this.cape.position.set(0, -1.3 * 0.92 + 0.02, 0.0);
     }
-    // xolo on the stern deck
+    // xolo on the bow deck, ahead of the arch
     this.dog = xolo();
-    this.dog.position.set(0.1, 0.2, -3.55);
-    this.dog.rotation.y = 0.3;
+    this.dog.position.set(-0.05, 0.2, 3.35);
+    this.dog.rotation.y = 0.6;
     this.dog.scale.setScalar(0.95);
     this.group.add(this.dog);
     // pole
     const pg = new THREE.CylinderGeometry(0.028, 0.032, 1, 8, 1);
     pg.translate(0, 0.5, 0);
-    this.poleLen = 5.4;
+    this.poleLen = 4.4;
     this.pole = new THREE.Mesh(pg, uvMat('planks', { color: 0xa88a66, roughness: 0.7 }));
     this.pole.castShadow = true;
     world.scene.add(this.pole);

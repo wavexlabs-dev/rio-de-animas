@@ -153,7 +153,7 @@ function boatGarlands(world, group, r, withPapel = true) {
     }
   }
   // drooping garlands along the gunwales, post to post
-  const posts = [2.8, 1.45, 0.05, -1.35, -2.85];
+  const posts = [2.8, 1.45, 0.1, -1.05, -2.2];
   for (const s of [-1, 1]) {
     for (let seg = 0; seg < posts.length - 1; seg++) {
       const z0 = posts[seg + 1] + 0.06, z1 = posts[seg] - 0.06;
@@ -170,7 +170,7 @@ function boatGarlands(world, group, r, withPapel = true) {
   if (withPapel) {
     // papel picado hanging from the roof edges
     const y = 1.78;
-    const lines = [[new THREE.Vector3(1.02, y, 2.7), new THREE.Vector3(1.02, y, -2.9), 0.06], [new THREE.Vector3(-1.02, y, 2.7), new THREE.Vector3(-1.02, y, -2.9), 0.06]];
+    const lines = [[new THREE.Vector3(1.02, y, 2.7), new THREE.Vector3(1.02, y, -2.12), 0.06], [new THREE.Vector3(-1.02, y, 2.7), new THREE.Vector3(-1.02, y, -2.12), 0.06]];
     buildPapel(world, lines, group);
   }
 }
@@ -224,7 +224,7 @@ export function decorateHeroBoat(world) {
   boatGarlands(world, b.group, r, true);
   // veladoras down the middle of the table
   const c = [];
-  for (let k = 0; k < 9; k++) c.push({ x: (k % 2 ? 0.13 : -0.13) + (r() - 0.5) * 0.04, y: 0.74, z: -2.3 + k * 0.5 + (r() - 0.5) * 0.1, h: 0.08 + r() * 0.06 });
+  for (let k = 0; k < 9; k++) c.push({ x: (k % 2 ? 0.13 : -0.13) + (r() - 0.5) * 0.04, y: 0.74, z: -1.8 + k * 0.44 + (r() - 0.5) * 0.08, h: 0.08 + r() * 0.06 });
   buildCandles(world, c, b.group);
   // hanging tin lantern under the middle of the roof, lights the table
   const lm = std({ color: 0xb8b2a6, roughness: 0.35, metalness: 0.8, emissive: 0xffa04a, emissiveIntensity: 0 }, { key: 'heroLan' });

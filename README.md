@@ -1,6 +1,6 @@
 # Río de Ánimas
 
-Un río de Día de Muertos en 3D que corre en tiempo real en el navegador. Una trajinera (la *Lupita*, con su arco pintado, mesa, sillas y techo de lona) remonta el valle a golpe de garrocha, con el trajinero parado al frente: pasa por el embarcadero del pueblo, las catrinas de cartonería, el panteón y el lirio acuático, hasta la cañada y la cascada. El día avanza hacia la noche, cuando se encienden las veladoras y salen las ánimas, y vuelve a amanecer antes de la tormenta.
+Un río de Día de Muertos en 3D que corre en tiempo real en el navegador. Una trajinera (la *Lupita*, con su arco pintado, mesa, sillas y techo de lona) remonta el valle a golpe de garrocha, con el trajinero parado atrás: pasa por el embarcadero del pueblo, las catrinas de cartonería, el panteón y el lirio acuático, hasta la cañada y la cascada. El día avanza hacia la noche, cuando se encienden las veladoras y salen las ánimas, y vuelve a amanecer antes de la tormenta.
 
 El recorrido cuenta el Día de Muertos en tres actos: por la tarde los vivos preparan (una ofrenda, una niña que marca el camino con pétalos de cempasúchil), de noche los muertos llegan de visita (las campanas, los alebrijes, la tumba de una familia) y al amanecer se vuelven mariposas monarca que suben por la cascada. Las escenas pasan solas cuando la trajinera llega a ellas (va más despacio mientras tanto) y cada quien decide si voltea a verlas; de noche el trajinero va dejando veladoras en el agua y de cada una nace un ánima. Las ánimas que se juntan en el camino son las que suben al final.
 
