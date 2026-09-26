@@ -96,16 +96,26 @@ function clearPlants(world, p, r) {
     s.items = s.items.filter((it) => (it.p.x - p.x) ** 2 + (it.p.z - p.z) ** 2 > (r + Math.min(it.r || 0, 1.2)) ** 2);
     if (s.items.length !== n0) { s.timer = 0; s.last.set(1e9, 0, 0); }
   }
-  const m = new THREE.Matrix4(), t = V3(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
+  // cleared instances are dropped (the last one moves into the slot), not collapsed with a zero matrix: the wind
+  // offset is added after the instance transform, so a collapsed plant still draws slivers at the world origin, and
+  // their zero normals turn into NaN on Apple GPUs (black specks with a bloom halo just upstream of the start)
+  const m = new THREE.Matrix4(), t = V3(), c = new THREE.Color();
   world.scene.traverse((o) => {
     if (!o.isInstancedMesh || !/^(plants|reeds|agave|cactus|flowers|weeds|bushes)/i.test(o.name)) return;
     if (o.boundingSphere && o.boundingSphere.center.distanceTo(p) > o.boundingSphere.radius + r) return;
-    let hit = false;
-    for (let i = 0; i < o.count; i++) {
+    let n = o.count;
+    for (let i = 0; i < n;) {
       o.getMatrixAt(i, m); t.setFromMatrixPosition(m);
-      if ((t.x - p.x) ** 2 + (t.z - p.z) ** 2 < r * r) { o.setMatrixAt(i, zero); hit = true; }
+      if ((t.x - p.x) ** 2 + (t.z - p.z) ** 2 >= r * r) { i++; continue; }
+      n--;
+      if (i === n) continue;
+      o.getMatrixAt(n, m); o.setMatrixAt(i, m);
+      if (o.instanceColor) { o.getColorAt(n, c); o.setColorAt(i, c); }
     }
-    if (hit) o.instanceMatrix.needsUpdate = true;
+    if (n === o.count) return;
+    o.count = n;
+    o.instanceMatrix.needsUpdate = true;
+    if (o.instanceColor) o.instanceColor.needsUpdate = true;
   });
 }
 

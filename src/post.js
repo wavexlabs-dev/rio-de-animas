@@ -52,7 +52,8 @@ export class Post {
         vec3 k = s(vec2(-2,2)), l = s(vec2(0,2)), m = s(vec2(2,2));
         vec3 col = g * 0.125 + (a + c + k + m) * 0.03125 + (b + f + h + l) * 0.0625 + (d + e + i + j) * 0.125;
         if (uFirst > 0.5) {
-          col = min(col, vec3(60.0));
+          // max first: on Apple GPUs max(NaN, 0) = 0 while min(NaN, 60) = 60, so a stray NaN pixel stays dark instead of blooming
+          col = min(max(col, vec3(0.0)), vec3(60.0));
           float br = max(col.r, max(col.g, col.b));
           float soft = clamp(br - uThresh + 0.5, 0.0, 1.0);
           soft = soft * soft * 0.5;
