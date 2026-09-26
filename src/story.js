@@ -1,5 +1,6 @@
-// Story layer: small scenes on the banks that answer to a touch, veladoras the visitor sets on the water,
-// and the ánimas that gather around the trajinera and go up the waterfall at the end of the journey.
+// Story layer: small scenes on the banks that play by themselves as the trajinera goes by (the camera turns to
+// look for a moment), veladoras the trajinero leaves on the water at night, and the ánimas that gather around
+// the trajinera and go up the waterfall at the end of the journey. Nothing to click: the pointer only looks around.
 // Act I (afternoon) the living prepare · Act II (night) the dead visit · Act III (dawn → gorge) they go back.
 import * as THREE from 'three';
 import { U, GLSL_COMMON, std } from './materials.js';
@@ -93,52 +94,6 @@ function clearPlants(world, p, r) {
   });
 }
 
-// ------------------------------------------------------------------ touch halos (warm breathing rings on what can be touched)
-class Halos {
-  constructor(world, n = 16) {
-    this.n = n;
-    this.P = new Float32Array(n * 4);
-    this.g = instGeo(new THREE.PlaneGeometry(1, 1), [['iP', this.P, 4]], n);
-    const m = new THREE.ShaderMaterial({
-      uniforms: Object.assign({}, U),
-      vertexShader: GLSL_COMMON + /* glsl */`
-        attribute vec4 iP; varying vec2 vUv; varying float vA;
-        void main() {
-          vec3 toC = normalize(cameraPosition - iP.xyz); vec3 rt = normalize(cross(vec3(0.0, 1.0, 0.0), toC)); vec3 up = cross(toC, rt);
-          float d = distance(cameraPosition, iP.xyz);
-          float s = max(fract(iP.w) * 4.0, d * 0.035);
-          vUv = uv; vA = floor(iP.w) / 100.0;
-          gl_Position = projectionMatrix * viewMatrix * vec4(iP.xyz + (rt * position.x + up * position.y) * s, 1.0);
-          if (vA < 0.01) gl_Position = vec4(2.0);
-        }`,
-      fragmentShader: GLSL_COMMON + /* glsl */`
-        varying vec2 vUv; varying float vA;
-        void main() {
-          float r = length(vUv - 0.5) * 2.0;
-          float t = fract(uTime * 0.45);
-          float ring = exp(-pow((r - (0.35 + t * 0.6)) * 9.0, 2.0)) * (1.0 - t);
-          float core = exp(-r * r * 9.0) * (0.55 + 0.45 * sin(uTime * 2.4));
-          vec3 c = vec3(1.0, 0.62, 0.22) * (ring * 1.4 + core * 0.5);
-          gl_FragColor = vec4(c * vA, 1.0);
-        }`,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    });
-    const mesh = new THREE.Mesh(this.g, m);
-    mesh.frustumCulled = false; mesh.layers.set(2); mesh.renderOrder = 11; mesh.name = 'halos';
-    world.scene.add(mesh);
-  }
-  set(list, cam) {
-    for (let i = 0; i < this.n; i++) {
-      const h = list[i];
-      if (!h || !h.active()) { this.P[i * 4 + 3] = 0; continue; }
-      const d = cam.distanceTo(h.p);
-      const a = h.a = lerp(h.a || 0, (1 - smoothstep(55, 80, d)) * (h.cool > 0 ? 0.15 : 1), 0.08);
-      this.P.set([h.p.x, h.p.y, h.p.z, Math.floor(a * 99) + Math.min(0.999, h.r * 0.25)], i * 4);
-    }
-    this.g.attributes.iP.needsUpdate = true;
-  }
-}
-
 // ------------------------------------------------------------------ companions: ánimas at night, monarchs by day
 class Companions {
   constructor(world) {
@@ -223,7 +178,7 @@ class Companions {
     if (!ascend) this.rang = false;
     this.uLift.value = lerp(this.uLift.value, ascend ? 1 : 0, 1 - Math.exp(-dt * 0.6));
     const fall = toWorld(R.FALL_U - 6, 0);
-    const tmp = V3(), tgt = V3(), acc = V3();
+    const tmp = V3(), tgt = V3(), acc = V3(), cam = w.cam.position;
     let cnt = 0; this.center.set(0, 0, 0);
     let slot = 0;
     for (const it of this.items) {
@@ -259,12 +214,15 @@ class Companions {
       }
       const kSpring = it.mode === 3 ? 0.9 : 0.8;
       acc.copy(tgt).sub(it.p).multiplyScalar(kSpring).addScaledVector(it.v, -1.1);
+      // keep out of the lens: a glowing wing right in front of the camera fills the screen (and the GPU)
+      tmp.copy(it.p).sub(cam); const dc = tmp.length();
+      if (dc < 3.5) acc.addScaledVector(tmp, (3.5 - dc) * 2.5 / Math.max(dc, 0.3));
       it.v.addScaledVector(acc, dt);
       const vmax = it.mode === 3 ? 9 : 7;
       const sp = it.v.length(); if (sp > vmax) it.v.multiplyScalar(vmax / sp);
       it.p.addScaledVector(it.v, dt);
       if (it.p.y < 0.5) it.p.y = 0.5;
-      this.P.set([it.p.x, it.p.y, it.p.z, it.a], it.k * 4);
+      this.P.set([it.p.x, it.p.y, it.p.z, it.a * smoothstep(1.4, 3.2, it.p.distanceTo(cam))], it.k * 4);
       if (it.a > 0.2) { this.center.add(it.p); cnt++; }
     }
     this.count = cnt;
@@ -274,8 +232,8 @@ class Companions {
   }
 }
 
-// ------------------------------------------------------------------ veladoras set on the water by the visitor
-class UserVeladoras {
+// ------------------------------------------------------------------ veladoras the trajinero leaves on the water at night
+class Veladoras {
   constructor(world, companions) {
     this.w = world; this.comp = companions;
     this.N = 28;
@@ -481,16 +439,17 @@ export class Story {
     this.w = world;
     this.hot = [];
     this.vign = [];
-    this.halos = new Halos(world);
     this.comp = new Companions(world);
-    this.vel = new UserVeladoras(world, this.comp);
+    this.vel = new Veladoras(world, this.comp);
     this.sparks = new Sparks(world);
     this.petals = new ThrownPetals(world);
     this.smokeSrc = null;
     this.slow = 1;
-    this.ray = new THREE.Raycaster();
-    this.setupInput();
-    this.hint = new Hint();
+    this.attn = { p: V3(), k: 0 };
+    this.cur = null; this.gap = 0;
+    this.velT = 4;
+    this.auto = true; // tools that direct the scenes themselves turn this off
+    world.attn = this.attn;
     world.onLoop = () => this.reset();
     world.glowSources.push(this.glowSource());
     world.updaters.push((dt, t) => this.update(dt, t));
@@ -501,7 +460,14 @@ export class Story {
     for (const s of steps) { try { s(); } catch (e) { console.warn('story', e); } await nextFrame(); }
     this.ready = true;
   }
-  addHot(h) { h.a = 0; h.cool = 0; h.touched = false; this.hot.push(h); return h; }
+  // a scene: p = where the camera looks, win = [near, far] metres ahead of the trajinera in which it plays,
+  // hold = how long the camera stays on it, fn = what happens
+  addHot(h) { h.win = h.win || [5, 22]; h.hold = h.hold || 3.4; h.played = false; this.hot.push(h); return h; }
+  play(h, glance = true) {
+    h.played = true;
+    h.fn();
+    if (glance) { this.cur = { h, t: 0 }; this.attn.p.copy(h.p); }
+  }
 
   // Act I — an ofrenda by the water, its candles still unlit
   ofrenda() {
@@ -535,7 +501,7 @@ export class Story {
     const V = { S, lit: 0, t: -1, meshes };
     const c = { v: 0 };
     w.updaters.push(() => { cs.mat.uniforms.uOn.value = c.v; });
-    this.addHot({ p: S.at(0, 0.85, -0.3), r: 1.3, u: S.u, active: () => V.t < 0, fn: () => { V.t = 0; if (w.audio) w.audio.chime([523, 659, 784], 0.8, S.at(0, 1, 0)); } });
+    this.addHot({ p: S.at(0, 0.85, -0.3), r: 1.3, u: S.u, hold: 3.8, fn: () => { V.t = 0; if (w.audio) w.audio.chime([523, 659, 784], 0.8, S.at(0, 1, 0)); } });
     V.update = (dt) => {
       if (V.t < 0) { c.v = 0; return; }
       V.t += dt;
@@ -572,9 +538,9 @@ export class Story {
     gc.forEach((p) => { p.y = terrainH(p.x, p.z) + 0.01; });
     const gcs = candleSet(w, gc);
     w.updaters.push(() => { gcs.mat.uniforms.uOn.value = Math.min(1, w.tod.night + w.tod.dusk * 0.9 + 0.25); });
-    const V = { S, t: -1, n: 0, pt: -1 };
+    const V = { S, t: -1, n: 0, pt: -1, left: 0 };
     V.glow = (list, cp) => { const I = Math.min(1, w.tod.night + w.tod.dusk + 0.3) * 0.8; const g = S.at(0, 0.9, 0.35); list.push({ x: g.x, y: g.y, z: g.z, r: 6, cr: 1.6 * I, cg: 0.9 * I, cb: 0.4 * I, w: 12 / (1 + cp.distanceTo(g) * 0.1) }); };
-    const hot = this.addHot({ p: S.at(0, 1.0, 0), r: 1.4, u: S.u, repeat: true, active: () => true, fn: () => { if (V.t < 0 || V.t > 1.6) { V.t = 0; V.n++; } } });
+    const hot = this.addHot({ p: S.at(0, 1.0, 0), r: 1.4, u: S.u, win: [4, 20], hold: 4.2, fn: () => { V.t = 0; V.n++; V.left = 2; } });
     const upq = toWorld(S.u + 40, 0), up = V3(upq.x, 6, upq.z);
     const midq = toWorld(S.u, 0), mid = V3(midq.x, 0.5, midq.z);
     V.update = (dt, t) => {
@@ -597,6 +563,7 @@ export class Story {
       let hand = rest;
       if (V.t >= 0) {
         V.t += dt;
+        if (V.t > 4.1 && V.left > 0) { V.t = 0; V.n++; V.left--; }
         const a = V.t;
         if (a < 0.35) hand = rest.clone().lerp(inB, ease(a / 0.35));
         else if (a < 0.6) hand = inB.clone().lerp(back, ease((a - 0.35) / 0.25));
@@ -622,7 +589,7 @@ export class Story {
       lookAt(abuela, pointing > 0.3 ? up : b.pos.clone().setY(1.5), Math.max(near, pointing));
       lookAt(nina, V.t >= 0 && V.t < 1.4 ? inB.clone().lerp(mid, smoothstep(0.5, 0.9, V.t)) : b.pos.clone().setY(1.5), V.t >= 0 && V.t < 1.4 ? 0.8 : near);
     };
-    V.reset = () => { V.t = -1; V.n = 0; V.pt = -1; };
+    V.reset = () => { V.t = -1; V.n = 0; V.pt = -1; V.left = 0; };
     this.vign.push(V);
     hot.p.copy(S.at(0.1, 0.9, 0.05));
   }
@@ -634,7 +601,7 @@ export class Story {
     const c = V3(); for (const b of w.bells) c.add(b.pos); c.multiplyScalar(1 / w.bells.length);
     const door = w.churchMatrix ? V3(-2.5, 2.2, 0).applyMatrix4(w.churchMatrix) : c.clone();
     const V = { t: -1, first: true };
-    this.addHot({ p: c, r: 3.2, u: L.church.u, repeat: true, active: () => true, fn: () => {
+    this.addHot({ p: door.clone().lerp(c, 0.6), r: 3.2, u: L.church.u, win: [18, 58], hold: 4.8, fn: () => {
       w.bellRingT = 9;
       if (V.first) { V.first = false; V.t = 0; }
     } });
@@ -652,20 +619,25 @@ export class Story {
   alebrijes() {
     const w = this.w, A = w.alebrijes;
     if (!A) return;
-    const V = { g: 0 };
+    const V = { g: 0, t: -1 };
     const pal = [[1, 0.25, 0.55], [0.2, 0.8, 1], [1, 0.8, 0.1], [0.4, 1, 0.3], [0.8, 0.3, 1]];
-    for (const it of A.list) {
-      this.addHot({ p: V3(it.x, it.y + 1.1, it.z), r: 1.4, u: L.steps.u, repeat: true, active: () => true, fn: () => {
-        V.g = 1;
-        this.sparks.burst(V3(it.x, it.y + 1, it.z), 70, pal);
-        if (w.audio) w.audio.chime([784, 988, 1175, 1568], 0.6, V3(it.x, it.y, it.z));
-      } });
-    }
+    const mid = V3(); for (const it of A.list) mid.add(V3(it.x, it.y + 1.1, it.z)); mid.multiplyScalar(1 / A.list.length);
+    const light = (it) => {
+      V.g = 1;
+      this.sparks.burst(V3(it.x, it.y + 1, it.z), 28, pal);
+      if (w.audio) w.audio.chime([784, 988, 1175, 1568], 0.6, V3(it.x, it.y, it.z));
+    };
+    this.addHot({ p: mid, r: 1.4, u: L.steps.u, win: [2, 22], hold: 3.6, fn: () => { V.t = 0; } });
     V.update = (dt, t) => {
+      if (V.t >= 0) {
+        const t0 = V.t; V.t += dt;
+        A.list.forEach((it, i) => { const tk = 0.3 + i * 0.85; if (t0 < tk && V.t >= tk) light(it); });
+        if (V.t > 0.3 + A.list.length * 0.85 + 1) V.t = -1;
+      }
       V.g = Math.max(0, V.g - dt * 0.35);
       A.mat.emissiveIntensity = V.g * (1.4 + 0.4 * Math.sin(t * 9)) * (0.4 + w.tod.night * 0.6);
     };
-    V.reset = () => { V.g = 0; };
+    V.reset = () => { V.g = 0; V.t = -1; };
     this.vign.push(V);
   }
 
@@ -697,7 +669,7 @@ export class Story {
     const V = { S, t: -1, spirit: null, look: 0 };
     const c = { v: 0 };
     w.updaters.push(() => { c.v = Math.min(1, w.tod.night * 0.95 + w.tod.dusk * 0.3 + (V.t >= 0 ? 0.4 : 0)); cs.mat.uniforms.uOn.value = c.v; });
-    this.addHot({ p: S.at(0, 0.7, -0.6), r: 1.5, u: S.u, active: () => V.t < 0, fn: () => {
+    this.addHot({ p: S.at(0, 0.7, -0.6), r: 1.5, u: S.u, hold: 4.2, fn: () => {
       V.t = 0;
       V.spirit = this.comp.spawn(S.at(0, 0.4, -0.4), { rise: 1.4, vy: 0.6, orbit: { c: woman.worldPos(woman.b.head), r: 1.1, t: 7 } });
       if (w.audio) w.audio.chime([440, 523, 659, 880], 0.9, S.at(0, 1, 0));
@@ -721,7 +693,7 @@ export class Story {
     this.vign.push(V);
   }
 
-  // Act III — by day, a tree covered in monarchs; touched, they take to the air and some ride along
+  // Act III — by day, a tree covered in monarchs; as the trajinera passes they take to the air and some ride along
   oyamel() {
     const w = this.w;
     const U0 = 600;
@@ -771,7 +743,7 @@ export class Story {
     const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.layers.set(5); mesh.name = 'oyamelMonarchs'; w.scene.add(mesh);
     const V = { t: -1 };
     const hotP = V3(best.x, Math.min(best.y, gy + 4), best.z);
-    this.addHot({ p: hotP, r: Math.min(3, best.r * 0.6), u: U0, active: () => V.t < 0, fn: () => {
+    this.addHot({ p: hotP, r: Math.min(3, best.r * 0.6), u: U0, win: [6, 30], hold: 4.2, fn: () => {
       V.t = 0;
       for (const it of items) it.v.set((Math.random() - 0.5) * 2, 1 + Math.random() * 2, (Math.random() - 0.5) * 2);
       if (w.audio) w.audio.flutter(hotP, 1.2);
@@ -805,151 +777,67 @@ export class Story {
     this.vign.push(V);
   }
 
-  // ---------------------------------------------------------------- input
-  setupInput() {
-    const el = this.w.r.domElement;
-    let down = null, lastHover = 0;
-    el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 }; });
-    el.addEventListener('pointermove', (e) => {
-      if (down) { down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y)); return; }
-      const now = performance.now();
-      if (now - lastHover < 90 || e.pointerType === 'touch') return;
-      lastHover = now;
-      el.style.cursor = this.pick(e.clientX, e.clientY) ? 'pointer' : '';
-    });
-    el.addEventListener('pointerup', (e) => {
-      if (down && down.moved < 9 && performance.now() - down.t < 500) this.tap(e.clientX, e.clientY);
-      down = null;
-    });
-    el.addEventListener('pointercancel', () => { down = null; });
-  }
-  ndc(cx, cy) { const r = this.w.r.domElement.getBoundingClientRect(); return { x: ((cx - r.left) / r.width) * 2 - 1, y: -((cy - r.top) / r.height) * 2 + 1, W: r.width, H: r.height }; }
-  pick(cx, cy) {
-    const cam = this.w.cam, q = this.ndc(cx, cy);
-    let best = null, bs = 1e9;
-    const v = V3();
-    const tanF = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
-    for (const h of this.hot) {
-      if (!h.active() || h.cool > 0) continue;
-      const d = cam.position.distanceTo(h.p);
-      if (d > 90) continue;
-      v.copy(h.p).project(cam);
-      if (v.z > 1 || v.z < -1) continue;
-      const dx = (v.x - q.x) * q.W / 2, dy = (v.y - q.y) * q.H / 2;
-      const px = Math.hypot(dx, dy);
-      const thr = Math.max(34, (h.r / (d * tanF)) * q.H / 2);
-      if (px < thr && px / thr < bs) { bs = px / thr; best = h; }
-    }
-    return best;
-  }
-  tap(cx, cy) {
-    const w = this.w;
-    if (w.userGesture) w.userGesture();
-    const h = this.pick(cx, cy);
-    if (h) { h.fn(); h.touched = true; h.cool = h.repeat ? 1.2 : 0; this.hint.used('touch'); return; }
-    // otherwise a veladora onto the water under the finger
-    const q = this.ndc(cx, cy);
-    this.ray.setFromCamera(new THREE.Vector2(q.x, q.y), w.cam);
-    const o = this.ray.ray.origin, d = this.ray.ray.direction;
-    if (d.y > -0.01) return;
-    const t = (0.03 - o.y) / d.y;
-    if (t > 75) return;
-    const p = o.clone().addScaledVector(d, t);
-    const ud = toUD(p.x, p.z, {}, w.boat.u);
-    if (Math.abs(ud.d) > halfW(ud.u) - 0.6) return;
-    if (terrainH(p.x, p.z) > 0.02) return;
-    // keep clear of the hull
-    const rx = p.x - w.boat.pos.x, rz = p.z - w.boat.pos.z;
-    const along = rx * w.boat.fwd.x + rz * w.boat.fwd.z, lat = -rx * w.boat.fwd.z + rz * w.boat.fwd.x;
-    if (Math.abs(along) < 5 && Math.abs(lat) < 1.6) { const s = Math.sign(lat || 1) * 1.8; p.x += -w.boat.fwd.z * (s - lat); p.z += w.boat.fwd.x * (s - lat); }
-    this.vel.place(p);
-    this.hint.used('water');
-  }
-
   reset() {
     for (const v of this.vign) v.reset && v.reset();
     this.comp.clear(); this.vel.clear();
-    for (const h of this.hot) { h.cool = 0; h.touched = false; }
+    for (const h of this.hot) h.played = false;
+    this.cur = null; this.gap = 0; this.attn.k = 0; this.velT = 4;
+  }
+  // the trajinero leaves a veladora beside the hull, alternating sides; an ánima is born from it
+  dropVeladora() {
+    const b = this.w.boat;
+    const side = this.vel.placed % 2 ? 1 : -1;
+    const p = b.pos.clone().addScaledVector(b.fwd, -0.5 + Math.random() * 2.5);
+    p.x += -b.fwd.z * side * 1.9; p.z += b.fwd.x * side * 1.9; p.y = 0.03;
+    const ud = toUD(p.x, p.z, {}, b.u);
+    if (Math.abs(ud.d) > halfW(ud.u) - 0.6 || terrainH(p.x, p.z) > 0.02) return false;
+    this.vel.place(p);
+    return true;
   }
   update(dt, t) {
-    const w = this.w;
+    const w = this.w, b = w.boat;
     for (const v of this.vign) v.update && v.update(dt, t);
     this.comp.update(dt, t);
     this.vel.update(dt, t);
     this.sparks.update(dt);
     this.petals.update(dt);
-    for (const h of this.hot) if (h.cool > 0) h.cool -= dt;
-    this.halos.set(this.hot, w.cam.position);
-    // the trajinera takes its time past a scene that is still waiting to be touched
-    let s = 1;
-    for (const h of this.hot) {
-      if (!h.active() || h.repeat) continue;
-      const du = h.u - w.boat.u;
-      if (du > -12 && du < 30) s = Math.min(s, 0.55);
+    if (!this.ready || !this.auto) { this.attn.k = 0; w.slow = 1; return; }
+    // the scene being watched: the camera turns to it, stays, and comes back
+    let want = 1;
+    if (this.cur) {
+      const c = this.cur, hold = c.h.hold;
+      c.t += dt;
+      this.attn.k = ease(clamp(c.t / 1.3, 0, 1)) * (1 - ease(clamp((c.t - hold) / 1.8, 0, 1)));
+      want = 0.55;
+      if (c.t > hold + 1.8) { this.cur = null; this.gap = 0.8; this.attn.k = 0; }
+    } else {
+      this.attn.k = 0;
+      this.gap = Math.max(0, this.gap - dt);
     }
-    this.slow = lerp(this.slow, s, 1 - Math.exp(-dt * 0.8));
+    // scenes play by themselves when the trajinera reaches them, one at a time
+    for (const h of this.hot) {
+      if (h.played) continue;
+      const du = h.u - b.u;
+      if (du < -40 || du > 90) continue;
+      const rx = h.p.x - b.pos.x, rz = h.p.z - b.pos.z;
+      const along = rx * b.fwd.x + rz * b.fwd.z;
+      if (along >= h.win[0] && along <= h.win[1]) {
+        if (!this.cur && this.gap <= 0) this.play(h);
+        else want = Math.min(want, 0.6);
+      } else if (along < h.win[0]) {
+        // passed while another scene had the camera: it still happens, just without the look
+        if (along > h.win[0] - 8) this.play(h, false); else h.played = true;
+      } else if (along < h.win[1] + 14) want = Math.min(want, 0.7);
+    }
+    this.slow = lerp(this.slow, want, 1 - Math.exp(-dt * 0.8));
     w.slow = this.slow;
-    // the camera glances at a scene nobody has touched yet as the trajinera passes it
-    let best = null, bk = 0;
-    for (const h of this.hot) {
-      if (h.touched || !h.active()) continue;
-      const rx = h.p.x - w.boat.pos.x, rz = h.p.z - w.boat.pos.z;
-      const along = rx * w.boat.fwd.x + rz * w.boat.fwd.z, d = Math.hypot(rx, rz);
-      const k = smoothstep(48, 26, d) * smoothstep(-14, 6, along);
-      if (k > bk) { bk = k; best = h; }
-    }
-    this.attn = this.attn || { p: V3(), k: 0 };
-    if (best) this.attn.p.lerp(best.p, this.attn.k < 0.01 ? 1 : 1 - Math.exp(-dt * 2));
-    this.attn.k = lerp(this.attn.k, bk * 0.3, 1 - Math.exp(-dt * 1.2));
-    w.attn = this.attn;
-    // first-time hints (graphic only): the ofrenda in the afternoon, the water at nightfall
-    if (this.ready) {
-      const of = this.hot[0];
-      if (of && of.active() && w.cam.position.distanceTo(of.p) < 34) this.hint.show('touch', of.p, w.cam);
-      if (w.tod.night > 0.55) this.hint.show('water', null, w.cam);
-      this.hint.update(dt, w.cam);
-    }
+    // veladoras through the night
+    if (w.tod.night > 0.6 && !w.looping) {
+      this.velT -= dt;
+      if (this.velT <= 0 && !this.cur) this.velT = this.dropVeladora() ? 9 + Math.random() * 5 : 1;
+    } else this.velT = Math.min(this.velT, 3);
   }
   glowSource() {
     return (list, cp) => { for (const v of this.vign) if (typeof v.glow === 'function') v.glow(list, cp); };
-  }
-}
-
-// ------------------------------------------------------------------ hint: a small tapping hand, no words
-class Hint {
-  constructor() {
-    this.done = { touch: false, water: false };
-    this.cur = null; this.t = 0;
-    const el = this.el = document.createElement('div');
-    el.style.cssText = 'position:fixed;left:0;top:0;width:64px;height:64px;margin:-32px 0 0 -32px;pointer-events:none;z-index:4;opacity:0;transition:opacity .8s ease;will-change:transform';
-    el.innerHTML = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
-      <style>.rp{fill:none;stroke:#ffd9a0;stroke-width:2;transform-origin:32px 22px;animation:rp 1.6s ease-out infinite}.rp2{animation-delay:.8s}
-      .hd{transform-origin:32px 40px;animation:tp 1.6s ease-in-out infinite}
-      @keyframes rp{0%{transform:scale(.3);opacity:.9}100%{transform:scale(1.4);opacity:0}}
-      @keyframes tp{0%,100%{transform:translateY(0)}35%{transform:translateY(3px)}}
-      @media (prefers-reduced-motion:reduce){.rp,.hd{animation:none}}</style>
-      <circle class="rp" cx="32" cy="22" r="12"/><circle class="rp rp2" cx="32" cy="22" r="12"/>
-      <path class="hd" d="M29 24c0-2 3-2 3 0v11l2-1c1-.5 2 0 2 1v-1c0-1.5 3-1.5 3 0v1c0-1.5 3-1.5 3 0v6c0 5-3 9-8 9h-2c-3 0-5-2-6-4l-4-7c-.7-1.4 1-2.6 2.2-1.5L29 41V24z" fill="#fff3e2" stroke="#3a2412" stroke-width="1.4" stroke-linejoin="round"/>
-    </svg>`;
-    document.body.appendChild(el);
-  }
-  used(kind) { this.done[kind] = true; if (this.cur === kind) this.hide(); }
-  show(kind, p, cam) {
-    if (this.done[kind] || this.cur === kind || this.cur) return;
-    this.cur = kind; this.p = p; this.t = 0;
-    this.el.style.opacity = '0.92';
-  }
-  hide() { this.el.style.opacity = '0'; this.cur = null; }
-  update(dt, cam) {
-    if (!this.cur) return;
-    this.t += dt;
-    let x = innerWidth / 2, y = innerHeight * 0.78;
-    if (this.p) {
-      const v = this.p.clone().project(cam);
-      if (v.z > 1) { this.hide(); return; }
-      x = (v.x * 0.5 + 0.5) * innerWidth; y = (-v.y * 0.5 + 0.5) * innerHeight + 18;
-    }
-    this.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
-    if (this.t > 7) { this.done[this.cur] = true; this.hide(); }
   }
 }

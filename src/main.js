@@ -109,8 +109,11 @@ async function boot() {
   const storyBuilt = world.story.build(nextFrame);
   if (Q.has('manual')) await storyBuilt;
   let last = performance.now();
-  // adaptive resolution
+  // adaptive resolution: judged on the median frame of each 1.2 s window (one hitch doesn't cost quality),
+  // and it climbs back once frames are steady again, so a heavy moment doesn't leave the image soft for good
   let ema = 16, acc = 0, slow = 0;
+  const S0 = world.renderScale, M0 = world.post.samples;
+  let win = [], good = 0, cap = S0, capUntil = 0, lastUp = -1e9;
   let bar = null;
   if (Q.has('dbg')) {
     bar = document.createElement('div');
@@ -126,18 +129,33 @@ async function boot() {
     last = now;
     ema = ema * 0.92 + raw * 1000 * 0.08;
     acc += raw;
+    if (raw < 0.5) win.push(raw * 1000);
     if (acc > 1.2) {
       acc = 0;
+      win.sort((a, b) => a - b);
+      const med = win.length ? win[win.length >> 1] : 16, p80 = win.length ? win[Math.floor(win.length * 0.8)] : 16;
+      win = [];
+      if (now > capUntil) cap = S0;
       // quality ladder once resolution is already at its floor
-      if (world.renderScale <= 0.52 && ema > 24) slow++; else if (ema < 15) slow = Math.max(0, slow - 1);
+      if (world.renderScale <= 0.52 && med > 24) slow++; else if (med < 15) slow = Math.max(0, slow - 1);
       if (slow >= 3 && (world.quality || 0) < 2) { world.quality = (world.quality || 0) + 1; slow = 0; if (world.quality >= 1 && world.grassFar) world.grassFar.visible = false; diag('quality', world.quality); }
-      diag('fps', { ms: Math.round(ema * 10) / 10, scale: Math.round(world.renderScale * 100) / 100, calls: world.r.info.render.calls, tris: world.r.info.render.triangles });
+      diag('fps', { ms: Math.round(med * 10) / 10, scale: Math.round(world.renderScale * 100) / 100, msaa: world.post.samples, calls: world.r.info.render.calls, tris: world.r.info.render.triangles });
       // slow: shed resolution down to ~0.64, then MSAA (4 -> 2 -> FXAA), then the rest of the resolution
-      if (ema > 21) {
+      if (med > 21) {
+        good = 0;
+        // dropped right after climbing: that step is too much for this machine for a while
+        if (now - lastUp < 8000) { cap = Math.max(0.5, world.renderScale - 0.04); capUntil = now + 45000; }
         if (world.renderScale > 0.64) world.renderScale = Math.max(0.5, world.renderScale - 0.07);
         else if (world.post.samples > 0) { world.post.setSamples(world.post.samples > 2 ? 2 : 0); diag('msaa', world.post.samples); }
         else if (world.renderScale > 0.5) world.renderScale = Math.max(0.5, world.renderScale - 0.07);
-      } else if (ema < 14.5 && world.renderScale < 1) world.renderScale = Math.min(1, world.renderScale + 0.04);
+      } else if (med < 18.5 && p80 < 22) {
+        // steady (60 fps displays sit at ~16.7 ms): win back what was shed, MSAA first
+        if (++good >= 3) {
+          good = 1;
+          if (world.post.samples < M0 && world.renderScale >= Math.min(0.64, S0)) { world.post.setSamples(world.post.samples === 0 ? 2 : M0); lastUp = now; diag('msaa', world.post.samples); }
+          else if (world.renderScale < Math.min(cap, S0) - 0.001) { world.renderScale = Math.min(cap, S0, world.renderScale + 0.04); lastUp = now; }
+        }
+      } else good = 0;
     }
     if (bar) { bar.style.width = Math.round(1000 / ema * 4) + 'px'; bar.style.background = ema < 18 ? '#3f3' : ema < 30 ? '#fc3' : '#f33'; bar.bar2.style.width = Math.round(world.renderScale * 240) + 'px'; }
     renderer.info.reset();

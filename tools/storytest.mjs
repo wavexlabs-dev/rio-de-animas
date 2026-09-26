@@ -1,5 +1,6 @@
-// Story layer check: boots the standalone build, visits each bank scene, touches it and grabs before/after frames.
-// usage: node tools/storytest.mjs [only-scene-name]
+// Story layer check: boots the standalone build, lets the trajinera reach each bank scene on its own and checks that
+// the scene plays by itself, the camera turns to it and comes back; then a stretch of night for the veladoras.
+// usage: node tools/storytest.mjs [only-scene-name]      (frames written to shots/story/)
 import { chromium } from 'playwright';
 import fs from 'fs';
 const only = (process.argv[2] || '').split(',').filter(Boolean);
@@ -14,103 +15,57 @@ const t0 = Date.now();
 await page.goto('file://' + process.cwd() + '/dist/index.html?manual&shot&t=0.62', { timeout: 180000 });
 await page.waitForFunction(() => window.__rio && window.__rio.story && window.__rio.story.ready, null, { timeout: 300000, polling: 1000 });
 console.log('boot', (Date.now() - t0) / 1000, 's');
-const info = await page.evaluate(() => {
-  const s = window.__rio.story;
-  return { hot: s.hot.map((h) => [Math.round(h.u), h.p.x.toFixed(1), h.p.y.toFixed(1), h.p.z.toFixed(1), !!h.repeat]), vign: s.vign.length };
-});
-console.log(JSON.stringify(info));
+console.log(JSON.stringify(await page.evaluate(() => window.__rio.story.hot.map((h) => [Math.round(h.u), h.win, h.hold]))));
 const shot = async (name) => {
   const url = await page.evaluate(() => window.__rio.r.domElement.toDataURL('image/jpeg', 0.85));
   fs.writeFileSync(`shots/story/${name}.jpg`, Buffer.from(url.split(',')[1], 'base64'));
 };
 // swiftshader needs ~10-20 s per rendered frame of this scene, so time is advanced without drawing and only the shots render
 const frames = (n, dt = 1 / 30) => page.evaluate(([n, dt]) => {
-  const w = window.__rio;
+  const w = window.__rio, s = w.story, out = [];
   for (let i = 0; i < n; i++) {
     w.time += dt; w.tod.update(dt, false); w.boat.update(dt, w.input, w.time); w.animateVillagers(dt, w.time); w.animateBells(dt); w.loopCheck(dt);
     if (!w.debugCam) w.chase.update(dt, w.time);
     for (const u of w.updaters) u(dt, w.time);
+    if (i % 15 === 0) out.push([+w.time.toFixed(1), Math.round(w.boat.u), +s.attn.k.toFixed(2), +w.slow.toFixed(2), s.cur ? s.hot.indexOf(s.cur.h) : -1]);
   }
+  return out;
 }, [n, dt]);
-const draw = (n = 1) => page.evaluate((n) => { for (let i = 0; i < n; i++) window.__rio.renderFrame(1 / 60); }, n);
-// view: boat a little before the scene, camera from the boat looking at the hotspot
+const draw = () => page.evaluate(() => window.__rio.renderFrame(1 / 60));
 const scenes = [
-  { name: 'ofrenda', hot: 0, t: 0.645, du: -16, frames: 50 },
-  { name: 'familia', hot: 1, t: 0.69, du: -14, frames: 34 },
-  { name: 'campanas', hot: 2, t: 0.855, du: -8, frames: 60 },
-  { name: 'alebrije', hot: 3, t: 0.84, du: -8, frames: 24 },
-  { name: 'tumba', hot: 5, t: 0.012, du: -12, frames: 70 },
-  { name: 'oyamel', hot: 6, t: 0.19, du: -18, frames: 50 },
+  { name: 'ofrenda', k: 0, t: 0.62 },
+  { name: 'familia', k: 1, t: 0.685 },
+  { name: 'campanas', k: 2, t: 0.84, back: 100 },
+  { name: 'alebrijes', k: 3, t: 0.85 },
+  { name: 'tumba', k: 4, t: 0.0 },
+  { name: 'oyamel', k: 5, t: 0.18 },
 ];
 for (const sc of scenes) {
   if (only.length && !only.includes(sc.name)) continue;
-  const ok = await page.evaluate((sc) => {
-    const w = window.__rio, s = w.story, h = s.hot[sc.hot];
-    if (!h) return false;
-    w.debugCam = false; w.tod.phase = sc.t; w.boat.reset(h.u + sc.du); w.chase.snap();
-    return true;
-  }, sc);
-  if (!ok) { console.log(sc.name, 'missing'); continue; }
-  await frames(8);
-  // look at the scene from the trajinera
   await page.evaluate((sc) => {
-    const w = window.__rio, s = w.story, h = s.hot[sc.hot], T = w.THREE;
-    w.debugCam = true;
-    const eye = w.boat.pos.clone().add(new T.Vector3(0, 3.2, 0));
-    const dir = h.p.clone().sub(eye); const d = dir.length();
-    w.cam.position.copy(eye).addScaledVector(dir.normalize(), Math.max(0, d - 16));
-    w.cam.lookAt(h.p); w.shadowTarget = h.p.clone();
+    const w = window.__rio, s = w.story, h = s.hot[sc.k];
+    s.reset(); for (const q of s.hot) q.played = q !== h;
+    w.debugCam = false; w.tod.phase = sc.t; w.boat.reset(h.u - (sc.back || 60)); w.chase.snap();
   }, sc);
-  await frames(3);
-  await draw(1);
-  await shot(sc.name + '_a');
-  const tap = await page.evaluate((sc) => {
-    const w = window.__rio, s = w.story, h = s.hot[sc.hot];
-    const v = h.p.clone().project(w.cam);
-    const r = w.r.domElement.getBoundingClientRect();
-    const x = r.left + (v.x * 0.5 + 0.5) * r.width, y = r.top + (-v.y * 0.5 + 0.5) * r.height;
-    const before = s.comp.items.filter((q) => q.mode).length;
-    const picked = s.pick(x, y) === h;
-    s.tap(x, y);
-    return { x: Math.round(x), y: Math.round(y), picked, before };
-  }, sc);
-  await frames(sc.frames);
-  await draw(1);
-  const after = await page.evaluate(() => window.__rio.story.comp.items.filter((q) => q.mode).length);
-  await shot(sc.name + '_b');
-  console.log(sc.name, JSON.stringify(tap), 'companions', tap.before, '->', after);
+  let trace = [], peak = null, done = false;
+  for (let chunk = 0; chunk < 40 && !done; chunk++) {
+    const tr = await frames(30);
+    trace = trace.concat(tr);
+    const st = await page.evaluate((k) => { const s = window.__rio.story; return { played: s.hot[k].played, cur: !!s.cur, k: s.attn.k }; }, sc.k);
+    if (st.played && st.k > 0.95 && !peak) { await draw(); await shot('auto_' + sc.name); peak = true; }
+    if (st.played && !st.cur) done = true;
+  }
+  const comp = await page.evaluate(() => window.__rio.story.comp.items.filter((q) => q.mode).length);
+  const on = trace.filter((r) => r[4] === sc.k);
+  console.log(sc.name.padEnd(9), done ? 'played' : 'NOT PLAYED', 'look', on.length ? `${on[0][0]}s→${on[on.length - 1][0]}s u ${on[0][1]}→${on[on.length - 1][1]} maxk ${Math.max(...on.map((r) => r[2]))} slow ${Math.min(...trace.map((r) => r[3]))}` : '-', 'companions', comp);
 }
-// veladoras on the water + the climb up the waterfall
-if (!only.length || only.includes('agua')) {
-  const r = await page.evaluate(() => {
-    const w = window.__rio, s = w.story, T = w.THREE;
-    w.debugCam = false; w.tod.phase = 0.86; w.boat.reset(300); w.chase.snap();
-    for (let i = 0; i < 6; i++) { w.tod.update(1 / 30); w.boat.update(1 / 30, w.input, w.time += 1 / 30); w.chase.update(1 / 30, w.time); }
-    w.cam.updateMatrixWorld();
-    const cam = w.cam, el = w.r.domElement.getBoundingClientRect();
-    const out = [];
-    for (const [ax, dd] of [[8, -3], [11, 3.5], [14, -5], [6, 4.5]]) {
-      const p = w.boat.pos.clone().addScaledVector(w.boat.fwd, ax); p.x += -w.boat.fwd.z * dd; p.z += w.boat.fwd.x * dd; p.y = 0.03;
-      const v = p.project(cam);
-      s.tap(el.left + (v.x * 0.5 + 0.5) * el.width, el.top + (-v.y * 0.5 + 0.5) * el.height);
-      out.push(s.vel.placed);
-    }
-    return out;
-  });
-  await frames(75);
-  await draw(1);
-  await shot('agua_veladoras');
-  const c = await page.evaluate(() => window.__rio.story.comp.items.filter((q) => q.mode).length);
-  console.log('veladoras placed', JSON.stringify(r), 'companions', c);
-  await page.evaluate(() => { const w = window.__rio; w.tod.phase = 0.55; w.boat.reset(1046); w.chase.snap(); });
-  await frames(60, 1 / 15);
-  await draw(1);
-  await shot('cascada_1');
-  await frames(60, 1 / 15);
-  await draw(1);
-  await shot('cascada_2');
-  const c2 = await page.evaluate(() => window.__rio.story.comp.items.filter((q) => q.mode).map((q) => q.mode + ':' + q.p.y.toFixed(0)).slice(0, 10));
-  console.log('ascending', JSON.stringify(c2));
+// night: the trajinero leaves veladoras and ánimas are born from them
+if (!only.length || only.includes('noche')) {
+  const p0 = await page.evaluate(() => { const w = window.__rio, s = w.story; s.reset(); for (const q of s.hot) q.played = true; w.debugCam = false; w.tod.phase = 0.86; w.boat.reset(300); w.chase.snap(); return s.vel.placed; });
+  await frames(30 * 40);
+  const r = await page.evaluate((p0) => { const s = window.__rio.story; return { placed: s.vel.placed - p0, alive: s.vel.items.filter((q) => q.alive).length, comp: s.comp.items.filter((q) => q.mode).length }; }, p0);
+  await draw(); await shot('auto_noche');
+  console.log('noche 40s', JSON.stringify(r));
 }
 console.log([...new Set(logs)].slice(0, 25).join('\n'));
 await browser.close();

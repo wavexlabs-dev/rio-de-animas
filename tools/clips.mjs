@@ -22,12 +22,12 @@ const frameScene = `(k, dist, up, side) => {
   w.cam.lookAt(h.p.x, h.p.y + 0.2, h.p.z); w.shadowTarget = h.p.clone();
 }`;
 const clips = [
-  { name: 'tumba', t: 0.012, hot: 5, du: -8, dist: 7, up: 1.2, side: 2, n: 46, taps: [4] },
+  { name: 'tumba', t: 0.012, hot: 4, du: -8, dist: 7, up: 1.2, side: 2, n: 46, taps: [4] },
   { name: 'veladoras', t: 0.86, bu: 300, chase: true, n: 26, water: [[1, 9, -3.5], [5, 12, 4], [9, 8, 3], [13, 14, -5]] },
   { name: 'nina', t: 0.69, hot: 1, du: -8, dist: 5.5, up: 0.6, side: 1.5, n: 18, taps: [2] },
   { name: 'ofrenda', t: 0.645, hot: 0, du: -8, dist: 6.5, up: 0.9, side: 1.5, n: 20, taps: [3] },
   { name: 'alebrije', t: 0.84, hot: 3, du: -6, dist: 8, up: 1.4, side: -2, n: 16, taps: [2] },
-  { name: 'monarcas', t: 0.19, hot: 6, du: -12, dist: 13, up: 2, side: 2, n: 20, taps: [3] },
+  { name: 'monarcas', t: 0.19, hot: 5, du: -12, dist: 13, up: 2, side: 2, n: 20, taps: [3] },
 ];
 for (const c of clips) {
   if (only.length && !only.includes(c.name)) continue;
@@ -35,7 +35,7 @@ for (const c of clips) {
   fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
   await page.evaluate((c) => {
     const w = window.__rio, s = w.story;
-    s.reset();
+    s.reset(); s.auto = false;
     w.debugCam = false; w.tod.phase = c.t;
     w.boat.reset(c.bu !== undefined ? c.bu : s.hot[c.hot].u + c.du); w.chase.snap();
     for (let i = 0; i < 10; i++) { w.tod.update(1 / 30); w.boat.update(1 / 30, w.input, w.time += 1 / 30); w.chase.update(1 / 30, w.time); }
@@ -45,7 +45,7 @@ for (const c of clips) {
   if (!c.chase) await page.evaluate(`(${frameScene})(${c.hot}, ${c.dist}, ${c.up}, ${c.side})`);
   const t0 = Date.now();
   for (let f = 0; f < c.n; f++) {
-    if (c.taps && c.taps.includes(f)) await page.evaluate((k) => { const s = window.__rio.story; s.hot[k].fn(); s.hot[k].touched = true; }, c.hot);
+    if (c.taps && c.taps.includes(f)) await page.evaluate((k) => { const s = window.__rio.story; s.play(s.hot[k], false); }, c.hot);
     for (const [fw, ax, dd] of c.water || []) if (fw === f) await page.evaluate(([ax, dd]) => {
       const w = window.__rio, T = w.THREE;
       const p = w.boat.pos.clone().addScaledVector(w.boat.fwd, ax); p.x += -w.boat.fwd.z * dd; p.z += w.boat.fwd.x * dd; p.y = 0.03;

@@ -10,8 +10,9 @@
   w.renderFrame = () => {};
   const V = (x, y, z) => new T.Vector3(x, y, z);
   const hot = s.hot;
-  const tap = (k) => () => { const h = hot[k]; h.fn(); h.touched = true; h.cool = h.repeat ? 1.2 : 0; s.hint.used('touch'); };
-  const vel = (ax, dd) => () => { const b = w.boat; const p = b.pos.clone().addScaledVector(b.fwd, ax); p.x += -b.fwd.z * dd; p.z += b.fwd.x * dd; p.y = 0.03; s.vel.place(p); s.hint.used('water'); };
+  s.reset(); s.auto = false;
+  const tap = (k) => () => s.play(hot[k], false);
+  const vel = (ax, dd) => () => { const b = w.boat; const p = b.pos.clone().addScaledVector(b.fwd, ax); p.x += -b.fwd.z * dd; p.z += b.fwd.x * dd; p.y = 0.03; s.vel.place(p); };
   const strike = () => w.lightning && w.lightning.strike();
   const reset = (u, ph, o = {}) => {
     w.debugCam = false; s.comp.clear(); s.vel.clear();
@@ -40,9 +41,19 @@
       w.cam.position.lerpVectors(P0, P1, k2); w.cam.lookAt(L); w.shadowTarget = L.clone();
     };
   };
+  // the same, but from straight out on the river (perpendicular to the bank at the scene)
+  const perp = {};
+  hot.forEach((h, k) => { w.boat.reset(h.u); const d = w.boat.pos.clone().sub(h.p); d.y = 0; perp[k] = d.normalize(); });
+  const across = (k, dist, up, lookY, side0, side1) => (t, dur) => {
+    const h = hot[k], dir = perp[k], lat = V(-dir.z, 0, dir.x);
+    const e = t / dur, k2 = e * e * (3 - 2 * e);
+    const P = h.p.clone().addScaledVector(dir, dist).addScaledVector(lat, side0 + (side1 - side0) * k2); P.y = h.p.y + up;
+    const L = h.p.clone().add(V(0, lookY, 0));
+    w.debugCam = true; w.cam.position.copy(P); w.cam.lookAt(L); w.shadowTarget = L.clone();
+  };
   // from the trajinera, looking up at the church, then panning down to the alebrijes
   const church = () => (t, dur) => {
-    const b = w.boat, bells = hot[2].p, ale = hot[3].p.clone().lerp(hot[4].p, 0.5);
+    const b = w.boat, bells = hot[2].p.clone().add(V(0, 6, 0)), ale = hot[3].p;
     const tgt = V(bells.x, bells.y - 9, bells.z).lerp(V(ale.x, ale.y + 1.5, ale.z), Math.min(1, Math.max(0, (t - 2.5) / 3)));
     w.debugCam = true;
     w.cam.position.copy(b.pos).addScaledVector(b.fwd, -3).add(V(0, 3.4, 0));
@@ -50,14 +61,14 @@
   };
   const shots = [
     { dur: 8, fadeIn: 1.2, setup: () => reset(22, 0.600) },
-    { dur: 7, setup: () => reset(hot[0].u - 12, 0.645), cam: dolly(0, 7.5, -2.5, 1.5, 1.4, 0.1), ev: [[2.4, tap(0)]] },
-    { dur: 7, setup: () => reset(hot[1].u - 10, 0.692), cam: dolly(1, 6, 1.8, -0.6, 0.9, -0.1), ev: [[1.2, tap(1)], [4.2, tap(1)]] },
+    { dur: 7, setup: () => reset(hot[0].u - 14, 0.645), cam: across(0, 9, 1.2, 0.2, -2, 2), ev: [[2.2, tap(0)]] },
+    { dur: 7, setup: () => reset(hot[1].u - 12, 0.692), cam: across(1, 7, 0.9, -0.1, 1.5, -1.5), ev: [[1.2, tap(1)]] },
     { dur: 6, setup: () => reset(206, 0.772) },
-    { dur: 8, setup: () => reset(250, 0.846), cam: church(), ev: [[0.8, tap(2)], [4.6, tap(3)], [5.4, tap(4)]] },
+    { dur: 8, setup: () => reset(250, 0.846), cam: church(), ev: [[0.8, tap(2)], [4.3, tap(3)]] },
     { dur: 7, setup: () => reset(300, 0.87), ev: [[0.4, vel(9, -3.5)], [1.3, vel(12, 4)], [2.2, vel(7, 3)], [3.1, vel(14, -5)], [4.0, vel(10, 1.5)]] },
-    { dur: 7, setup: () => reset(hot[5].u - 8, 0.012), cam: dolly(5, 6.5, 2.5, 0.8, 1.3, 0.3), ev: [[1.0, tap(5)]] },
+    { dur: 7, setup: () => reset(hot[4].u - 10, 0.012), cam: across(4, 6.5, 1.2, 0.3, 1.8, -0.6), ev: [[1.0, tap(4)]] },
     { dur: 6, setup: () => reset(492, 0.075, { bring: 14 }) },
-    { dur: 7, setup: () => reset(hot[6].u - 14, 0.19), cam: dolly(6, 14, 2, -1, 2.5, 0.5), ev: [[1.5, tap(6)]] },
+    { dur: 6, setup: () => reset(hot[5].u - 16, 0.19), cam: across(5, 13, 5.5, 2.0, -2.5, -0.5), ev: [[1.2, tap(5)]] },
     { dur: 6, setup: () => reset(840, 0.47, { wet: 0.8 }), ev: [[2.2, strike], [4.5, strike]] },
     { dur: 10, fadeOut: 1.8, setup: () => reset(1034, 0.565, { bring: 26 }) },
   ];

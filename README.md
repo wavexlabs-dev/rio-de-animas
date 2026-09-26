@@ -2,9 +2,9 @@
 
 Un río de Día de Muertos en 3D que corre en tiempo real en el navegador. Una trajinera remonta el valle a golpe de garrocha: pasa por el embarcadero del pueblo, las catrinas de cartonería, el panteón y el lirio acuático, hasta la cañada y la cascada. El día avanza hacia la noche, cuando se encienden las veladoras y salen las ánimas, y vuelve a amanecer antes de la tormenta.
 
-El recorrido cuenta el Día de Muertos en tres actos: por la tarde los vivos preparan (una ofrenda, una niña que marca el camino con pétalos de cempasúchil), de noche los muertos llegan de visita (las campanas, la tumba de una familia) y al amanecer se vuelven mariposas monarca que suben por la cascada. Las ánimas que el visitante junta en el camino son las que suben al final.
+El recorrido cuenta el Día de Muertos en tres actos: por la tarde los vivos preparan (una ofrenda, una niña que marca el camino con pétalos de cempasúchil), de noche los muertos llegan de visita (las campanas, los alebrijes, la tumba de una familia) y al amanecer se vuelven mariposas monarca que suben por la cascada. Las escenas pasan solas cuando la trajinera llega a ellas y la cámara voltea a verlas un momento; de noche el trajinero va dejando veladoras en el agua y de cada una nace un ánima. Las ánimas que se juntan en el camino son las que suben al final.
 
-Hecho con [three.js](https://threejs.org) y un pipeline de post-proceso propio (HDR, bloom, rayos de luz, FXAA). La página no lleva texto: solo un cargador gráfico de cempasúchil y, la primera vez, una mano que indica dónde tocar.
+Hecho con [three.js](https://threejs.org) y un pipeline de post-proceso propio (HDR, bloom, rayos de luz, FXAA). La página no lleva texto: solo un cargador gráfico de cempasúchil. No hay nada que tocar; el mouse o el dedo solo sirven para mirar alrededor.
 
 ## Controles
 
@@ -13,11 +13,10 @@ Hecho con [three.js](https://threejs.org) y un pipeline de post-proceso propio (
 | Remar / girar (sin tocar nada va en piloto automático) | `W` `A` `S` `D` o flechas |
 | Adelantar el tiempo (mientras la mantienes) | `Espacio` |
 | Silenciar / activar sonido | `M` |
-| Mirar alrededor | Arrastrar con el mouse o el dedo |
-| Poner una veladora en el río (de ella sale un ánima que acompaña a la trajinera) | Clic o toque sobre el agua |
-| Activar lo que brilla en las orillas (ofrenda, niña con pétalos, campanas, alebrijes, tumba, árbol de monarcas) | Clic o toque |
+| Mirar alrededor (mientras miras, la cámara no voltea sola a las escenas) | Arrastrar con el mouse o el dedo |
+| Acercar / alejar la cámara | Rueda del mouse |
 
-El audio empieza con la primera interacción, como piden los navegadores.
+El audio empieza con la primera interacción (un clic, un toque o una tecla), como piden los navegadores.
 
 ## Correrlo en local
 
