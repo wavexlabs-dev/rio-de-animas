@@ -46,6 +46,9 @@ export class ChaseCam {
     const yaw = dYaw + this.userYaw, pitch = clamp(dPitch + this.userPitch, 0.04, 1.2), dist = clamp(dDist + this.userDist, 4.5, 34);
     const tgt = new THREE.Vector3().copy(boat.pos).addScaledVector(boat.fwd, 1.2);
     tgt.y = 1.9;
+    // story scenes can pull the gaze a little (not while the visitor is steering the view)
+    const at = this.w.attn;
+    if (at && at.k > 0.001) tgt.lerp(at.p, at.k * clamp((idle - 2) / 3, 0, 1));
     const back = boat.fwd.clone().negate().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     const P = tgt.clone().addScaledVector(back, dist * Math.cos(pitch));
     P.y = tgt.y + dist * Math.sin(pitch) + 0.9;

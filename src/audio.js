@@ -161,6 +161,47 @@ export class Soundscape {
       o.connect(g).connect(out); o.start(t); o.stop(t + dec + 0.1);
     }
   }
+  // distance falloff for story sounds placed in the world
+  near(p, k = 22) { return p ? Math.min(1, k / (this.w.cam.position.distanceTo(p) + 6)) : 1; }
+  // soft struck-glass chime (a short arpeggio)
+  chime(freqs, vol = 0.6, p) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t0 = ctx.currentTime;
+    const out = ctx.createGain(); out.gain.value = 0.05 * vol * this.near(p);
+    out.connect(this.master); out.connect(this.revIn);
+    freqs.forEach((f, i) => {
+      const t = t0 + i * 0.11;
+      for (const [r, a, dec] of [[1, 1, 2.2], [2.76, 0.25, 0.9], [5.4, 0.08, 0.4]]) {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * r;
+        const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0005, t + dec);
+        o.connect(g).connect(out); o.start(t); o.stop(t + dec + 0.05);
+      }
+    });
+  }
+  // a small thing set down on the water
+  plop(p) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime, v = this.near(p, 14);
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(180, t + 0.12);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05 * v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.16);
+    o.connect(g).connect(this.master); g.connect(this.revIn);
+    o.start(t); o.stop(t + 0.2);
+    this.splash(0.5 * v);
+  }
+  // wings / thrown petals: a soft papery flutter
+  flutter(p, amt = 1) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime, v = this.near(p, 18) * amt;
+    const s = ctx.createBufferSource(); s.buffer = this.white;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.8;
+    const am = ctx.createGain(); am.gain.value = 0.5;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 17; const lg = ctx.createGain(); lg.gain.value = 0.5;
+    lfo.connect(lg).connect(am.gain);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.03 * v, t + 0.15); g.gain.exponentialRampToValueAtTime(0.0005, t + 1.4 + amt);
+    s.connect(bp).connect(am).connect(g).connect(this.master);
+    s.start(t, Math.random() * 2); s.stop(t + 1.6 + amt); lfo.start(t); lfo.stop(t + 1.6 + amt);
+  }
   splash(strength) {
     if (!this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;

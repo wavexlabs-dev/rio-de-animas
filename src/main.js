@@ -9,6 +9,7 @@ import { TimeOfDay } from './timeofday.js';
 import { Post } from './post.js';
 import { R, toWorld, frame, terrainH } from './river.js';
 import { World } from './world.js';
+import { Story } from './story.js';
 
 const Q = new URLSearchParams(location.search);
 // hash tokens (artifact viewers only pass a plain #anchor): e.g. #t0.62-dbg
@@ -103,6 +104,10 @@ async function boot() {
   diag('firstFrame', { ms: Math.round(performance.now() - tw), scale: world.renderScale });
   await nextFrame();
   if (loaderEl) { if (Q.has('shot')) loaderEl.remove(); else { loaderEl.classList.add('done'); setTimeout(() => loaderEl.remove(), 1600); } }
+  // story layer (bank scenes, veladoras, ánimas): built a few pieces per frame once the river is already on screen
+  world.story = new Story(world);
+  const storyBuilt = world.story.build(nextFrame);
+  if (Q.has('manual')) await storyBuilt;
   let last = performance.now();
   // adaptive resolution
   let ema = 16, acc = 0, slow = 0;

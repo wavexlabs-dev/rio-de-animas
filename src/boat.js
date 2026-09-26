@@ -467,7 +467,7 @@ export class Boat {
     steer = lerp(mSteer, aSteer, blend);
     // autopilot leans harder on the pole where the current is stronger (gorge)
     const flc = flowAt(this.u || 0, 0, {}).s;
-    thr = lerp(mThr + flc * 0.3, 0.68 + flc * 0.42, blend);
+    thr = lerp(mThr + flc * 0.3, (0.68 + flc * 0.42) * (w.slow || 1), blend);
     this.steer = lerp(this.steer, steer, 1 - Math.exp(-dt * 6));
     this.throttle = lerp(this.throttle, thr, 1 - Math.exp(-dt * 3));
     this.autoBlend = blend;

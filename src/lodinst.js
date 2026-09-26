@@ -5,6 +5,8 @@ export class LodInstances {
   // items: [{ m: Matrix4, p: Vector3, r: radius }]
   constructor(world, geos, mat, items, o = {}) {
     this.items = items;
+    this.name = o.name || 'lod';
+    (world.lodSets || (world.lodSets = [])).push(this);
     this.near = o.near || 40;
     this.far = o.far || 1e9;
     this.meshes = geos.map((g, i) => {

@@ -14,7 +14,7 @@ function instGeo(base, attrs, count) {
   return g;
 }
 
-function wingGeo() {
+export function wingGeo() {
   // two wings hinged on the local Z axis; attribute side = -1 / +1
   const pos = [], uv = [], side = [], idx = [];
   for (const s of [1, -1]) {

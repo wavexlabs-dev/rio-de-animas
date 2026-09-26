@@ -49,6 +49,8 @@ export function buildGeneratedCatrinas(world, spots) {
 export function buildAlebrijes(world) {
   const st = statue('alebrije_w', 2.0, { roughness: 0.6 });
   if (!st) return;
+  // they light up when touched (story.js): emissive from their own paint, off until then
+  st.mat.emissive = new THREE.Color(1, 1, 1); st.mat.emissiveMap = st.mat.map; st.mat.emissiveIntensity = 0;
   const list = [];
   for (const du of [-3.7, 3.7]) {
     const u = L.steps.u + du, d = 24.3;
@@ -59,4 +61,5 @@ export function buildAlebrijes(world) {
     world.blockers.push({ x: w.x, z: w.z, r: 1.4 });
   }
   put(world, st, list);
+  world.alebrijes = { mat: st.mat, list };
 }

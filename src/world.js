@@ -152,7 +152,8 @@ export class World {
     fireflies(this);
     const fallBase = toWorld(R.FALL_U - 1.5, 0);
     smoke(this, [() => this.censerPos ? { x: this.censerPos.x, y: this.censerPos.y, z: this.censerPos.z, w: 0.5 } : null, () => this.brazier ? { x: this.brazier.x, y: this.brazier.y, z: this.brazier.z, w: 1.0 } : null,
-      () => ({ x: fallBase.x, y: 0.3, z: fallBase.z, w: 3.2 }), () => ({ x: fallBase.x + 2, y: 0.3, z: fallBase.z + 1.5, w: 2.6 })]);
+      () => ({ x: fallBase.x, y: 0.3, z: fallBase.z, w: 3.2 }), () => ({ x: fallBase.x + 2, y: 0.3, z: fallBase.z + 1.5, w: 2.6 }),
+      () => (this.story && this.story.smokeSrc) || null]);
     this.splashes = new Splashes(this);
     this.updaters.push((dt) => this.splashes.update(dt));
     monarchs(this);
@@ -393,7 +394,8 @@ export class World {
   }
   animateBells(dt) {
     const p = this.tod.phase;
-    const ring = (p > 0.083 && p < 0.1) || (p > 0.705 && p < 0.725) ? 1 : 0;
+    this.bellRingT = Math.max(0, (this.bellRingT || 0) - dt);
+    const ring = (p > 0.083 && p < 0.1) || (p > 0.705 && p < 0.725) || this.bellRingT > 0 ? 1 : 0;
     const q = new THREE.Quaternion().setFromRotationMatrix(this.churchMatrix);
     for (const b of this.bellMeshes || []) {
       b.amp = lerp(b.amp, ring ? 1.1 : 0.04 + U.uWind.value.z * 0.03, 1 - Math.exp(-dt * (ring ? 0.8 : 0.4)));
