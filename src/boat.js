@@ -24,6 +24,8 @@ function trajineroMesh() {
 }
 
 export const HULL = { L: 8.6, hb0: 0.95 };
+// where the trajinero stands (boat-local z): on the bow deck, ahead of the painted arch
+const BOW = 3.5;
 export function hb(z) { return 0.95 - 0.23 * Math.pow(z / 4.3, 2); }
 export function yb(z) { return -0.3 + 0.17 * smoothstep(0.55, 1, Math.abs(z) / 4.3); }
 export function yg(z) { return 0.42 + 0.07 * Math.pow(z / 4.3, 2); }
@@ -55,7 +57,7 @@ function hullGeometry() {
         buf.p.push(x, y, z);
         buf.n.push(0, 0, 0);
         buf.uv.push(z / 2.4, s / 1.2);
-        buf.c.push(...(inset ? [1, 1, 1] : band(y)));
+        buf.c.push(...(inset ? (y > 0.0 ? [0.9, 0.24, 0.18] : [0.5, 0.42, 0.36]) : band(y)));
         buf.paint.push(inset ? 0 : 1);
       });
     });
@@ -109,15 +111,23 @@ export function buildBoatMesh() {
       `,
     }),
     wood: uvMat('planks', { color: 0xe0c8b0, roughness: 0.82, porosity: 0.6, vertexColors: true }),
-    petate: uvMat('petate', { color: 0xfff2dc, roughness: 0.85, porosity: 0.7, vertexColors: true, side: THREE.DoubleSide }),
     cane: std({ vertexColors: true, color: 0xcfb880, roughness: 0.55, metalness: 0 }, { porosity: 0.4, key: 'otate' }),
     iron: std({ color: 0x2a2624, roughness: 0.5, metalness: 0.75, vertexColors: true }, { porosity: 0.3, key: 'bIron' }),
     clay: std({ color: 0xa25a36, roughness: 0.92, metalness: 0, vertexColors: true }, { porosity: 0.8, key: 'clay' }),
     glaze: std({ color: 0x2c5a36, roughness: 0.16, metalness: 0.0, vertexColors: true }, { porosity: 0.0, key: 'glaze' }),
     fruit: std({ vertexColors: true, roughness: 0.5, metalness: 0 }, { porosity: 0.2, key: 'fruit' }),
-    arch: std({ map: tex('f_arch'), roughness: 0.6, metalness: 0, vertexColors: true, side: THREE.DoubleSide }, { porosity: 0.3, key: 'archpaint' }),
     tin: std({ color: 0xbab5aa, roughness: 0.32, metalness: 0.85, vertexColors: true, emissive: 0xffa040, emissiveMap: tex('f_tin'), emissiveIntensity: 0 }, { porosity: 0.1, key: 'tin' }),
+    // painted wood: the vertex colour is the paint, the planks only lend their grain
+    paintw: std({ vertexColors: true, map: tex('planks_c'), normalMap: ntex('planks_n'), roughness: 0.58, metalness: 0 }, {
+      porosity: 0.35, key: 'paintw',
+      mapFragment: 'vec4 tx = texture2D(map, vMapUv); diffuseColor.rgb *= 0.82 + 0.3 * tx.g;',
+    }),
+    lona: uvMat('cloth', { color: 0xffffff, roughness: 0.9, porosity: 0.6, vertexColors: true, side: THREE.DoubleSide }),
+    piso: std({ map: tex('t_piso'), normalMap: ntex('planks_n'), roughness: 0.62, metalness: 0 }, { porosity: 0.45, key: 'tpiso' }),
+    proa: std({ map: tex('t_proa'), normalMap: ntex('planks_n'), roughness: 0.62, metalness: 0 }, { porosity: 0.45, key: 'tproa' }),
+    letrero: std({ map: tex('t_letrero', { clamp: true }), alphaTest: 0.5, roughness: 0.55, metalness: 0, side: THREE.FrontSide }, { porosity: 0.3, key: 'tletrero' }),
   };
+  mats.letrero.alphaToCoverage = true;
   mats.paint.vertexColors = true;
   // hull
   B.add('paint', hull.outer, null, {});
@@ -140,197 +150,149 @@ export function buildBoatMesh() {
     const pts = [], pts2 = [];
     for (let i = 0; i <= 20; i++) { const z = -4.3 + 8.6 * i / 20; pts.push(new THREE.Vector3(s * (hb(z) - 0.02), yg(z) + 0.015, z)); pts2.push(new THREE.Vector3(s * (hb(z) + 0.015), yg(z) - 0.06, z)); }
     const cap = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.035, 4, false);
-    B.add('wood', cap, null, { color: [0.9, 0.7, 0.2] });
+    B.add('paintw', cap, null, { color: [0.98, 0.76, 0.1] });
     const rail = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts2), 40, 0.028, 4, false);
-    B.add('wood', rail, null, { color: [0.78, 0.18, 0.18] });
+    B.add('paintw', rail, null, { color: [0.86, 0.16, 0.16] });
   }
-  // ribs
-  for (let z = -3.9; z <= 3.9; z += 0.58) {
-    const sec = section(z, 0.07);
-    for (let k = 0; k < sec.length - 1; k++) {
-      const [x0, y0] = sec[k], [x1, y1] = sec[k + 1];
-      const len = Math.hypot(x1 - x0, y1 - y0);
-      const g = new THREE.BoxGeometry(0.045, len + 0.02, 0.07);
-      g.rotateZ(Math.atan2(x1 - x0, -(y1 - y0)) + Math.PI);
-      g.translate((x0 + x1) / 2, (y0 + y1) / 2, z);
-      B.add('wood', g, null, { uvScale: 1, color: [0.85, 0.8, 0.75] });
-    }
-  }
-  // floorboards
-  for (let k = -2; k <= 2; k++) {
-    const g = box(0.26, 0.03, 7.6, k * 0.29, yb(0) + 0.07, 0);
-    B.add('wood', g, null, { uvScale: 1.6, color: [0.95 + rand() * 0.1, 0.92, 0.9] });
-  }
-  // thwarts with iron knees
-  for (const z of [-2.8, -0.7, 1.6, 3.1]) {
-    const w = (hb(z) - 0.06) * 2;
-    B.add('wood', box(w, 0.05, 0.24, 0, yg(z) - 0.12, z), null, { uvScale: 1.2 });
-    for (const s of [-1, 1]) {
-      B.add('iron', box(0.03, 0.18, 0.05, s * (hb(z) - 0.08), yg(z) - 0.28, z), null, {});
-      B.add('iron', box(0.14, 0.02, 0.05, s * (hb(z) - 0.15), yg(z) - 0.08, z), null, {});
-      B.add('iron', new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6).rotateZ(Math.PI / 2).translate(s * (hb(z) + 0.02), yg(z) - 0.1, z), null, {});
-    }
-  }
-  // stern deck platform
-  for (let k = 0; k < 6; k++) {
-    const z = -4.15 + k * 0.2;
-    const w = (hb(z) - 0.06) * 2;
-    B.add('wood', box(w, 0.04, 0.18, 0, 0.18, z), null, { uvScale: 1.2, color: [0.9, 0.86, 0.8] });
-  }
-  B.add('wood', box(1.2, 0.3, 0.08, 0, -0.12, -3.1), null, { uvScale: 1.2 });
-  // bow deck
-  for (let k = 0; k < 5; k++) {
-    const z = 3.3 + k * 0.2;
-    const w = (hb(z) - 0.06) * 2;
-    B.add('wood', box(w, 0.04, 0.18, 0, 0.14, z), null, { uvScale: 1.2, color: [0.9, 0.86, 0.8] });
-  }
-  // canopy hoops (otate) with nodes
-  const hoopZ = [-1.9, -1.1, -0.3, 0.5, 1.3, 2.1];
-  const canopyH = 0.95;
-  for (const z of hoopZ) {
-    const r = hb(z) - 0.02;
-    const pts = [];
-    for (let i = 0; i <= 16; i++) { const a = Math.PI * i / 16; pts.push(new THREE.Vector3(Math.cos(a) * r, yg(z) + Math.sin(a) * canopyH, z)); }
-    B.add('cane', tubeAlong(pts, 0.024, 24, 6), null, { color: [0.82, 0.72, 0.46] });
-    for (let i = 1; i < 16; i += 2) {
-      const a = Math.PI * i / 16;
-      const tor = new THREE.TorusGeometry(0.027, 0.008, 4, 8);
-      tor.rotateY(Math.PI / 2); tor.rotateX(0);
-      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-Math.sin(a), Math.cos(a) * canopyH / r, 0).normalize());
-      tor.applyQuaternion(q);
-      tor.translate(Math.cos(a) * r, yg(z) + Math.sin(a) * canopyH, z);
-      B.add('cane', tor, null, { color: [0.62, 0.52, 0.32] });
-    }
-    for (const s of [-1, 1]) {
-      const lash = new THREE.TorusGeometry(0.04, 0.012, 5, 10);
-      lash.rotateX(Math.PI / 2);
-      lash.translate(s * r, yg(z) + 0.03, z);
-      B.add('cane', lash, null, { color: [0.55, 0.45, 0.3] });
-    }
-  }
-  // petate canopy surface
-  {
-    const nz = 30, na = 22;
+  // ---- a Xochimilco trajinera: painted floor, table and chairs under a lona roof, the name on the arch at the bow
+  const FLOOR = 0.02, DECK = 0.2, ROOF = 1.95, CROWN = 0.3, SIGN_Z = 2.83;
+  const POSTS = [2.8, 1.45, 0.05, -1.35, -2.85];
+  // painted floor between the decks (UV: u across, v along)
+  const shaped = (z0, z1, y, inset, nz = 24) => {
     const pos = [], uv = [], idx = [];
-    const z0 = -2.0, z1 = 2.2;
     for (let i = 0; i <= nz; i++) {
-      const z = z0 + (z1 - z0) * i / nz;
-      let sag = 0;
-      let dmin = 9;
-      for (const hz of hoopZ) dmin = Math.min(dmin, Math.abs(z - hz));
-      sag = -0.035 * Math.pow(Math.min(1, dmin / 0.4), 2);
-      const r = hb(z) + 0.005;
-      for (let k = 0; k <= na; k++) {
-        const a = Math.PI * k / na;
-        const rr = r + 0.012;
-        pos.push(Math.cos(a) * rr, yg(z) + Math.sin(a) * (canopyH + 0.02) + sag * Math.sin(a), z);
-        uv.push(a * 1.2, z / 0.8);
-      }
+      const z = z0 + (z1 - z0) * i / nz, w = hb(z) - inset;
+      for (const k of [0, 1]) { pos.push((k ? 1 : -1) * w, y, z); uv.push(k, i / nz); }
     }
-    for (let i = 0; i < nz; i++) for (let k = 0; k < na; k++) {
-      const a = i * (na + 1) + k, b = a + 1, c = a + na + 1, d = c + 1;
-      idx.push(a, b, c, b, d, c);
-    }
+    for (let i = 0; i < nz; i++) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    B.add('petate', g, null, {});
-  }
-  // bow arch with painted board
-  {
-    const z = 3.55;
-    const r0 = 0.72, r1 = 0.98;
-    const cy = yg(z) + 0.95;
-    for (const s of [-1, 1]) B.add('wood', box(0.07, cy - yg(z) + 0.1, 0.07, s * 0.86, yg(z) - 0.05, z), null, { uvScale: 1, color: [0.85, 0.2, 0.2] });
-    const pts = [...arcPts(0, cy, r1, 0.12, Math.PI - 0.12, 24), ...arcPts(0, cy, r0, Math.PI - 0.12, 0.12, 24)];
-    const g = extrude(pts, 0.05, [], z - 0.025, 24);
-    const p = g.attributes.position, uv = g.attributes.uv, n = g.attributes.normal;
-    for (let i = 0; i < p.count; i++) {
-      const a = Math.atan2(p.getY(i) - cy, p.getX(i));
-      const r = Math.hypot(p.getX(i), p.getY(i) - cy);
-      let u = 1 - (a - 0.12) / (Math.PI - 0.24);
-      if (n.getZ(i) < 0) u = 1 - u;
-      uv.setXY(i, u, (r - r0) / (r1 - r0));
-    }
-    B.add('arch', g, null, {});
-    B.add('wood', box(1.9, 0.06, 0.08, 0, yg(z) + 0.05, z), null, { uvScale: 1, color: [0.88, 0.66, 0.12] });
-  }
-  // bow lantern pole & lantern
-  const poleTip = new THREE.Vector3(0, 2.3, 5.05);
-  {
-    const pts = [new THREE.Vector3(0, 0.15, 3.95), new THREE.Vector3(0, 1.2, 4.2), new THREE.Vector3(0, 2.05, 4.6), new THREE.Vector3(0, 2.38, 5.1)];
-    B.add('cane', tubeAlong(pts, 0.022, 20, 6), null, { color: [0.8, 0.7, 0.45] });
-    B.add('iron', cylinder(0.003, 0.003, 0.22, 4, 0, 2.08, 5.1), null, {});
-    B.add('tin', cylinder(0.075, 0.075, 0.2, 10, 0, 1.86, 5.1), null, {});
-    B.add('tin', cylinder(0.08, 0.01, 0.09, 10, 0, 2.06, 5.1), null, {});
-    B.add('tin', cylinder(0.085, 0.085, 0.02, 10, 0, 1.85, 5.1), null, {});
-  }
-  // oar (stern quarter) and spare pole
-  B.add('wood', cylinder(0.028, 0.028, 3.4, 8).rotateX(Math.PI / 2).translate(-hb(-2.5) + 0.12, yg(-2.5) + 0.05, -2.6), null, { uvScale: 1, color: [0.75, 0.62, 0.5] });
-  B.add('wood', box(0.12, 0.02, 0.6, -hb(-4) + 0.14, yg(-4) + 0.02, -4.4), null, { uvScale: 1, color: [0.75, 0.62, 0.5] });
-  B.add('wood', cylinder(0.024, 0.024, 4.6, 8).rotateX(Math.PI / 2).translate(hb(0) - 0.14, yg(0) - 0.08, 0.1), null, { uvScale: 1, color: [0.7, 0.58, 0.44] });
-  // cargo -------------------------------------------------------------
-  const floorY = yb(0) + 0.09;
-  // rolled petates
-  for (const [x, z] of [[-0.4, -1.55], [0.35, -1.62]]) B.add('petate', cylinder(0.14, 0.14, 1.0, 14).rotateZ(Math.PI / 2).translate(x * 0.3, floorY + 0.14, z), null, {});
-  // chiquihuites (baskets)
-  const basket = (x, z, r, h, fill) => {
-    B.add('petate', cylinder(r * 0.8, r, h, 16, x, floorY, z), null, { color: [0.95, 0.85, 0.65] });
-    const rim = new THREE.TorusGeometry(r, 0.02, 5, 16); rim.rotateX(Math.PI / 2); rim.translate(x, floorY + h, z);
-    B.add('petate', rim, null, { color: [0.8, 0.68, 0.48] });
-    for (let k = 0; k < 14; k++) {
-      const a = rand() * 6.28, rr = Math.sqrt(rand()) * r * 0.8;
-      const sp = new THREE.SphereGeometry(fill === 'bread' ? 0.07 : 0.045, 8, 6);
-      if (fill === 'bread') sp.scale(1, 0.6, 1);
-      sp.translate(x + Math.cos(a) * rr, floorY + h - 0.01 + rand() * 0.03, z + Math.sin(a) * rr);
-      B.add('fruit', sp, null, { color: fill === 'bread' ? [0.62, 0.38, 0.18] : [0.95, 0.5, 0.08] });
-    }
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
   };
-  basket(-0.42, -0.75, 0.2, 0.28, 'orange');
-  basket(0.42, -0.6, 0.22, 0.3, 'bread');
-  basket(0.4, 0.35, 0.19, 0.26, 'orange');
-  // clay pots (ollas)
+  const deckMesh = (g, m) => { const o = new THREE.Mesh(g, m); o.receiveShadow = true; group.add(o); return o; };
+  deckMesh(shaped(-3.12, 2.9, FLOOR, 0.12), mats.piso);
+  // bow and stern decks (the trajinero stands on the bow), with their edge boards
+  deckMesh(shaped(2.86, 4.26, DECK, 0.05, 8), mats.proa);
+  deckMesh(shaped(-4.26, -3.08, DECK, 0.05, 8), mats.proa);
+  for (const z of [2.86, -3.08]) B.add('paintw', box((hb(z) - 0.06) * 2, DECK - FLOOR + 0.01, 0.05, 0, FLOOR, z + (z > 0 ? 0.025 : -0.025)), null, { uvScale: 1.2, color: [0.95, 0.72, 0.1] });
+  for (const z of [3.5, -3.6]) B.add('paintw', box(0.08, DECK - yb(z) - 0.02, (z > 0 ? 1.3 : 1.1), 0, yb(z) + 0.02, z), null, { uvScale: 1.2 });
+  // posts and roof beams
+  for (const z of POSTS) {
+    for (const s of [-1, 1]) {
+      const x = s * (hb(z) - 0.05), y0 = yg(z) - 0.02;
+      B.add('paintw', box(0.07, ROOF - y0, 0.07, x, y0, z), null, { uvScale: 1.5, color: [0.84, 0.14, 0.12] });
+      B.add('paintw', box(0.075, 0.06, 0.075, x, ROOF - 0.26, z), null, { uvScale: 1.5, color: [0.98, 0.76, 0.08] });
+      B.add('paintw', box(0.075, 0.06, 0.075, x, y0 + 0.3, z), null, { uvScale: 1.5, color: [0.1, 0.45, 0.8] });
+    }
+    const rw = 1.02, pts = [];
+    for (let i = 0; i <= 12; i++) { const x = -rw + 2 * rw * i / 12; pts.push(new THREE.Vector3(x, ROOF + CROWN * (1 - (x / rw) ** 2) - 0.03, z)); }
+    B.add('paintw', tubeAlong(pts, 0.03, 16, 5), null, { color: [0.84, 0.14, 0.12] });
+    B.add('paintw', box(rw * 2, 0.06, 0.06, 0, ROOF - 0.06, z), null, { uvScale: 1.5, color: [0.84, 0.14, 0.12] });
+  }
+  // lona roof: an arched sheet that sags a little between the beams, with a valance all round
+  {
+    const rw = 1.04, z0 = -3.02, z1 = SIGN_Z - 0.03, nz = 46, nx = 18;
+    const pos = [], uv = [], col = [], idx = [];
+    for (let i = 0; i <= nz; i++) {
+      const z = z0 + (z1 - z0) * i / nz;
+      let dm = 9; for (const pz of POSTS) dm = Math.min(dm, Math.abs(z - pz));
+      const sag = -0.05 * Math.pow(Math.min(1, dm / 0.7), 2);
+      for (let k = 0; k <= nx; k++) {
+        const x = -rw + 2 * rw * k / nx, e = 1 - (x / rw) ** 2;
+        pos.push(x, ROOF + CROWN * e + sag * e, z);
+        uv.push(x * 1.4, z * 1.4);
+        const edge = Math.abs(x) > rw - 0.1;
+        col.push(...(edge ? [0.98, 0.78, 0.1] : [0.2, 0.62, 0.26]));
+      }
+    }
+    for (let i = 0; i < nz; i++) for (let k = 0; k < nx; k++) { const a = i * (nx + 1) + k, b2 = a + 1, c = a + nx + 1, d = c + 1; idx.push(a, c, b2, b2, c, d); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    B.add('lona', g, null, {});
+    for (const s of [-1, 1]) {
+      B.add('lona', box(0.012, 0.16, z1 - z0, s * rw, ROOF - 0.15, (z0 + z1) / 2), null, { color: [0.98, 0.78, 0.1] });
+      B.add('lona', box(0.016, 0.035, z1 - z0, s * rw, ROOF - 0.17, (z0 + z1) / 2), null, { color: [0.86, 0.12, 0.2] });
+    }
+    B.add('lona', box(rw * 2, 0.16, 0.012, 0, ROOF - 0.15, z0), null, { color: [0.98, 0.78, 0.1] });
+    B.add('lona', box(rw * 2, 0.035, 0.016, 0, ROOF - 0.17, z0), null, { color: [0.86, 0.12, 0.2] });
+  }
+  // the painted arch at the bow: front face reads from ahead, back face from inside the boat
+  {
+    const sw = 1.9, sh = 2.2, y0 = yg(SIGN_Z) - 0.1;
+    for (const back of [0, 1]) {
+      const g = new THREE.PlaneGeometry(sw, sh);
+      if (back) { const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i)); g.rotateY(Math.PI); }
+      g.translate(0, y0 + sh / 2, SIGN_Z + (back ? -0.012 : 0.012));
+      const m = new THREE.Mesh(g, mats.letrero); m.castShadow = true; m.receiveShadow = true; group.add(m);
+    }
+    // board edge
+    const sp = 1.196 - 0.36 + y0;
+    for (const s of [-1, 1]) B.add('paintw', box(0.024, sp - y0, 0.024, s * (sw / 2 - 0.012), y0, SIGN_Z), null, { uvScale: 1, color: [0.9, 0.7, 0.1] });
+  }
+  // long table down the middle and wooden chairs facing it
+  const TOP = FLOOR + 0.72, tz0 = -2.5, tz1 = 2.05, tw = 0.6;
+  B.add('paintw', box(tw, 0.04, tz1 - tz0, 0, TOP - 0.04, (tz0 + tz1) / 2), null, { uvScale: 1.4, color: [0.98, 0.8, 0.12] });
+  for (const s of [-1, 1]) B.add('paintw', box(0.03, 0.09, tz1 - tz0 - 0.1, s * (tw / 2 - 0.04), TOP - 0.13, (tz0 + tz1) / 2), null, { uvScale: 1.4, color: [0.12, 0.42, 0.82] });
+  for (const z of [tz0 + 0.12, (tz0 + tz1) / 2, tz1 - 0.12]) for (const s of [-1, 1]) B.add('paintw', box(0.05, TOP - 0.04 - FLOOR, 0.05, s * (tw / 2 - 0.08), FLOOR, z), null, { uvScale: 1.4, color: [0.12, 0.42, 0.82] });
+  const chair = (x, z, s, frame) => {
+    const SY = FLOOR + 0.44, cw = 0.38, cd = 0.36;
+    B.add('paintw', box(cd, 0.035, cw, x, SY - 0.035, z), null, { uvScale: 2, color: [0.98, 0.8, 0.14] });
+    for (const dx of [-1, 1]) for (const dz of [-1, 1]) {
+      const back = dx === s;
+      const h = back ? SY + 0.5 - FLOOR : SY - FLOOR;
+      B.add('paintw', box(0.035, h, 0.035, x + dx * (cd / 2 - 0.02), FLOOR, z + dz * (cw / 2 - 0.02)), null, { uvScale: 2, color: frame });
+    }
+    for (const yy of [0.2, 0.42]) B.add('paintw', box(0.03, 0.06, cw - 0.02, x + s * (cd / 2 - 0.02), SY + yy, z), null, { uvScale: 2, color: yy > 0.3 ? [0.98, 0.8, 0.14] : frame });
+    B.add('paintw', box(0.02, 0.02, cw - 0.04, x - s * (cd / 2 - 0.02), FLOOR + 0.14, z), null, { uvScale: 2, color: frame });
+  };
+  for (let i = 0; i < 7; i++) {
+    const z = tz0 + 0.3 + i * 0.64;
+    chair(0.56, z, 1, i % 2 ? [0.12, 0.42, 0.82] : [0.84, 0.14, 0.12]);
+    chair(-0.56, z + 0.05, -1, i % 2 ? [0.84, 0.14, 0.12] : [0.12, 0.42, 0.82]);
+  }
+  // hanging tin lantern under the front of the roof
+  const lan = new THREE.Vector3(0, 1.6, 2.45);
+  B.add('iron', cylinder(0.004, 0.004, ROOF + CROWN - lan.y - 0.1, 4, 0, lan.y + 0.1, lan.z), null, {});
+  B.add('tin', cylinder(0.07, 0.07, 0.18, 10, 0, lan.y - 0.09, lan.z), null, {});
+  B.add('tin', cylinder(0.08, 0.01, 0.08, 10, 0, lan.y + 0.09, lan.z), null, {});
+  B.add('tin', cylinder(0.078, 0.078, 0.02, 10, 0, lan.y - 0.1, lan.z), null, {});
+  // on the table: pan de muerto, oranges and clay pots of cempasúchil (candles are added by the Boat)
+  const flowers = [];
   const olla = (x, z, s, key) => {
     const pts = [[0.0, 0], [0.12, 0.01], [0.2, 0.08], [0.22, 0.16], [0.18, 0.26], [0.1, 0.31], [0.09, 0.35], [0.11, 0.37]].map(([r, y]) => new THREE.Vector2(r * s, y * s));
     const g = new THREE.LatheGeometry(pts, 18);
-    g.translate(x, floorY, z);
+    g.translate(x, TOP, z);
     B.add(key, g, null, {});
-  };
-  olla(-0.35, 0.9, 1.0, 'clay'); olla(0.3, 1.25, 0.85, 'clay'); olla(-0.4, 1.55, 0.75, 'clay'); olla(-0.42, 0.25, 1.15, 'glaze');
-  // sugar cane bundle
-  for (let k = 0; k < 11; k++) {
-    const x = -0.12 + (k % 4) * 0.06, y = floorY + 0.35 + Math.floor(k / 4) * 0.05;
-    const g = cylinder(0.018, 0.016, 2.3, 6).rotateX(Math.PI / 2).translate(x, y, 0.35);
-    B.add('cane', g, null, { color: [0.55, 0.6, 0.25] });
-    for (let n = -1.0; n <= 1.0; n += 0.25) B.add('cane', new THREE.TorusGeometry(0.019, 0.004, 3, 6).translate(x, y, 0.35 + n), null, { color: [0.4, 0.42, 0.18] });
-  }
-  for (const z of [-0.5, 1.2]) { const t = new THREE.TorusGeometry(0.13, 0.012, 4, 12); t.translate(0.0, floorY + 0.4, z); B.add('cane', t, null, { color: [0.5, 0.4, 0.26] }); }
-  // coiled rope on stern deck
-  {
-    const pts = [];
-    for (let i = 0; i < 60; i++) { const a = i * 0.45, r = 0.08 + i * 0.0035; pts.push(new THREE.Vector3(-0.45 + Math.cos(a) * r, 0.23 + Math.floor(i / 20) * 0.022, -3.95 + Math.sin(a) * r)); }
-    B.add('cane', tubeAlong(pts, 0.014, 120, 5), null, { color: [0.62, 0.52, 0.36] });
-  }
-  // cempasuchil bundles: stems + flower points
-  const flowers = [];
-  const bundle = (x, y, z, ang, len = 0.75) => {
-    const g = cylinder(0.1, 0.13, len, 10).rotateZ(Math.PI / 2).rotateY(ang).translate(x, y, z);
-    B.add('cane', g, null, { color: [0.3, 0.42, 0.16] });
-    const dir = new THREE.Vector3(Math.cos(ang), 0, -Math.sin(ang));
-    for (let k = 0; k < 22; k++) {
-      const off = dir.clone().multiplyScalar(len / 2 + rand() * 0.12);
-      const a = rand() * 6.28, rr = rand() * 0.15;
-      const p = new THREE.Vector3(x, y, z).add(off).add(new THREE.Vector3(Math.cos(a) * rr * dir.z, Math.sin(a) * rr, Math.cos(a) * rr * -dir.x));
-      flowers.push({ p, n: new THREE.Vector3(rand() - 0.5, 0.6 + rand() * 0.4, rand() - 0.5).normalize() });
+    for (let k = 0; k < 16; k++) {
+      const a = rand() * 6.28, rr = rand() * 0.12 * s;
+      flowers.push({ p: new THREE.Vector3(x + Math.cos(a) * rr, TOP + 0.37 * s + 0.08 + rand() * 0.14, z + Math.sin(a) * rr), n: new THREE.Vector3(Math.cos(a) * 0.5, 1, Math.sin(a) * 0.5).normalize() });
     }
   };
-  bundle(0.0, floorY + 0.15, 1.9, 1.3); bundle(-0.3, floorY + 0.2, 2.3, 1.7); bundle(0.3, floorY + 0.2, 2.6, 1.5);
-  bundle(0.05, floorY + 0.4, 2.2, 1.6); bundle(-0.25, floorY + 0.15, -0.1, 0.2, 0.6); bundle(0.25, floorY + 0.5, 0.9, 1.4);
-  bundle(0.0, floorY + 0.55, 1.6, 1.2); bundle(-0.2, floorY + 0.3, 3.0, 1.55, 0.55);
-  // loose flowers on bow deck
-  for (let k = 0; k < 30; k++) flowers.push({ p: new THREE.Vector3((rand() - 0.5) * 1.0, 0.2, 3.35 + rand() * 0.7), n: new THREE.Vector3(0, 1, 0) });
+  olla(0, 1.55, 0.55, 'clay'); olla(0, -0.2, 0.6, 'glaze'); olla(0, -2.05, 0.5, 'clay');
+  const plate = (z, fill) => {
+    B.add('clay', cylinder(0.13, 0.1, 0.02, 14, 0, TOP, z), null, { color: [1.0, 0.85, 0.7] });
+    for (let k = 0; k < 5; k++) {
+      const a = rand() * 6.28, rr = rand() * 0.06;
+      const sp = new THREE.SphereGeometry(fill === 'bread' ? 0.06 : 0.04, 8, 6);
+      if (fill === 'bread') sp.scale(1, 0.6, 1);
+      sp.translate(Math.cos(a) * rr, TOP + 0.05, z + Math.sin(a) * rr);
+      B.add('fruit', sp, null, { color: fill === 'bread' ? [0.62, 0.38, 0.18] : [0.95, 0.5, 0.08] });
+    }
+  };
+  plate(0.75, 'bread'); plate(-1.1, 'orange'); plate(0.35, 'orange'); plate(-1.5, 'bread');
+  // petals on the floor and the bow deck
+  for (let k = 0; k < 24; k++) flowers.push({ p: new THREE.Vector3((rand() - 0.5) * 1.2, FLOOR + 0.015, -2.9 + rand() * 5.6), n: new THREE.Vector3(0, 1, 0) });
+  // coiled rope on the stern deck
+  {
+    const pts = [];
+    for (let i = 0; i < 60; i++) { const a = i * 0.45, r = 0.08 + i * 0.0035; pts.push(new THREE.Vector3(-0.45 + Math.cos(a) * r, DECK + 0.03 + Math.floor(i / 20) * 0.022, -3.95 + Math.sin(a) * r)); }
+    B.add('cane', tubeAlong(pts, 0.014, 120, 5), null, { color: [0.62, 0.52, 0.36] });
+  }
   const meshes = B.build(group, mats);
   // flower cards
   const fm = std({ map: tex('f_cempa'), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.75 }, {
@@ -351,7 +313,7 @@ export function buildBoatMesh() {
   fim.castShadow = true;
   group.add(fim);
   group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return { group, mats, lanternPos: new THREE.Vector3(0, 1.86, 5.1) };
+  return { group, mats, lanternPos: new THREE.Vector3(0, 1.6, 2.45), TOP: 0.74, DECK: 0.2 };
 }
 
 // ------------------------------------------------------------------------------
@@ -371,12 +333,12 @@ export class Boat {
       // generated trajinero (hat, manta, faja and huaraches are part of the scan)
       this.man = new Character(scanned);
       this.group.add(this.man.group);
-      this.man.group.position.set(0.4, 0.2, -3.45);
+      this.man.group.position.set(0.4, 0.2, BOW);
       this.cape = new THREE.Object3D();
     } else {
       this.man = new Character({ scale: 0.92, skin: [0.44, 0.28, 0.18], shirt: [0.86, 0.83, 0.75], pantsCol: [0.83, 0.79, 0.7], sash: [0.62, 0.12, 0.12], widePants: true, pants: 0.02, hair: [0.05, 0.04, 0.035], mustache: [0.08, 0.06, 0.05], sleeves: true });
       this.group.add(this.man.group);
-      this.man.group.position.set(0.4, 0.2, -3.45);
+      this.man.group.position.set(0.4, 0.2, BOW);
       this.hat = sombrero(0.28, 0.13);
       this.man.b.head.add(this.hat);
       this.hat.position.set(0, (1.74 - 1.58) * 0.92, -0.005);
@@ -385,10 +347,10 @@ export class Boat {
       this.man.b.chest.add(this.cape);
       this.cape.position.set(0, -1.3 * 0.92 + 0.02, 0.0);
     }
-    // xolo on the bow deck
+    // xolo on the stern deck
     this.dog = xolo();
-    this.dog.position.set(-0.05, 0.16, 2.95);
-    this.dog.rotation.y = 0.6;
+    this.dog.position.set(0.1, 0.2, -3.55);
+    this.dog.rotation.y = 0.3;
     this.dog.scale.setScalar(0.95);
     this.group.add(this.dog);
     // pole
@@ -412,7 +374,7 @@ export class Boat {
     this.lastInput = -99;
     this.speedRel = 0;
     this.plantW = null;
-    this.tipLocal = new THREE.Vector3(1.45, -1.5, -3.2);
+    this.tipLocal = new THREE.Vector3(1.45, -1.5, BOW + 0.25);
     this.reset(R.START_U);
   }
   reset(u) {
@@ -565,10 +527,10 @@ export class Boat {
     // grip point (local to boat group)
     const pushT = ph > P0 && ph < P1 ? (ph - P0) / (P1 - P0) : ph >= P1 ? 1 : 0;
     const lean = ph < P0 ? lerp(0.15, 0.35, ph / P0) : ph < P1 ? lerp(0.35, 0.62, Math.sin(pushT * Math.PI / 2)) : ph < P2 ? lerp(0.62, 0.2, (ph - P1) / (P2 - P1)) : lerp(0.2, 0.15, (ph - P2) / (1 - P2));
-    const G = new THREE.Vector3(0.76, lerp(1.36, 1.02, lean), -3.15 + lean * 0.3);
+    const G = new THREE.Vector3(0.76, lerp(1.36, 1.02, lean), BOW + 0.3 + lean * 0.3);
     // tip position (local)
     const bedAt = (lp) => { const wp = this.world_(lp); return terrainH(wp.x, wp.z) + 0.03; };
-    const plantL = new THREE.Vector3(1.48, 0, -3.05);
+    const plantL = new THREE.Vector3(1.48, 0, BOW + 0.4);
     let tip;
     if (ph >= P0 && ph < P1) {
       if (!this.plantW) {
@@ -630,14 +592,13 @@ export class Boat {
     // hands on the pole
     const up = gW.clone();
     const low = gW.clone().addScaledVector(pdir, -0.5);
-    const shoulderPole = (side) => this.world_(new THREE.Vector3(side > 0 ? 1.5 : -0.8, 0.4, -3.6));
-    man.ik2(b.shR, b.elR, b.wrR, up, this.world_(new THREE.Vector3(0.2, 0.6, -4.6)));
-    man.ik2(b.shL, b.elL, b.wrL, low, this.world_(new THREE.Vector3(1.4, 0.5, -4.2)));
+        man.ik2(b.shR, b.elR, b.wrR, up, this.world_(new THREE.Vector3(0.2, 0.6, BOW - 1.15)));
+    man.ik2(b.shL, b.elL, b.wrL, low, this.world_(new THREE.Vector3(1.4, 0.5, BOW - 0.75)));
     // legs: feet planted on deck
-    const footL = this.world_(new THREE.Vector3(0.6, 0.28, -3.1));
-    const footR = this.world_(new THREE.Vector3(0.28, 0.28, -3.78));
-    man.ik2(b.hipL, b.knL, b.anL, footL, this.world_(new THREE.Vector3(1.2, 0.8, -1.8)));
-    man.ik2(b.hipR, b.knR, b.anR, footR, this.world_(new THREE.Vector3(0.6, 0.8, -2.3)));
+    const footL = this.world_(new THREE.Vector3(0.6, 0.28, BOW + 0.35));
+    const footR = this.world_(new THREE.Vector3(0.28, 0.28, BOW - 0.33));
+    man.ik2(b.hipL, b.knL, b.anL, footL, this.world_(new THREE.Vector3(1.2, 0.8, BOW + 1.65)));
+    man.ik2(b.hipR, b.knR, b.anR, footR, this.world_(new THREE.Vector3(0.6, 0.8, BOW + 1.15)));
     // cape reacts to stroke
     this.cape.rotation.x = -lean * 0.2 - 0.05;
     // dog breathing

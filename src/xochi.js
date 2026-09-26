@@ -120,7 +120,7 @@ export function bankVeladoras(world) {
 
 function ofrenda(world, group, r) {
   const cloth = std({ color: 0xf2eee6, roughness: 0.9 }, { key: 'cloth' });
-  const z0 = -3.55;
+  const z0 = -3.95;
   const tiers = [[1.5, 0.22, 0.9, 0.2], [1.2, 0.2, 0.62, 0.42], [0.9, 0.18, 0.38, 0.62]];
   const flowers = [], candles = [], bread = [];
   for (const [w, h, d, y] of tiers) {
@@ -143,23 +143,24 @@ function ofrenda(world, group, r) {
 
 function boatGarlands(world, group, r, withPapel = true) {
   const fl = [], mag = [];
-  // along the bow arch
-  const z = 3.55, cy = yg(z) + 0.95;
+  // around the painted arch at the bow (inner and outer rim of its band)
+  const z = 2.87, cy = yg(2.83) - 0.1 + 2.2 * 0.38;
   for (let k = 0; k <= 40; k++) {
-    const a = 0.12 + (Math.PI - 0.24) * k / 40;
-    for (const rr of [1.0, 0.7]) {
-      const p = new THREE.Vector3(Math.cos(a) * rr, cy + Math.sin(a) * rr, z + (r() - 0.5) * 0.06);
-      (k % 5 === 0 ? mag : fl).push({ p, n: new THREE.Vector3(Math.cos(a), Math.sin(a), 0.4).normalize(), kind: 0 });
+    const a = 0.1 + (Math.PI - 0.2) * k / 40;
+    for (const [rx, ry] of [[0.72, 0.58], [0.93, 0.8]]) {
+      const p = new THREE.Vector3(Math.cos(a) * rx, cy + Math.sin(a) * ry, z + (r() - 0.5) * 0.04);
+      (k % 5 === 0 ? mag : fl).push({ p, n: new THREE.Vector3(Math.cos(a) * 0.6, Math.sin(a) * 0.6, 1).normalize(), kind: 0 });
     }
   }
-  // drooping garlands along gunwales
+  // drooping garlands along the gunwales, post to post
+  const posts = [2.8, 1.45, 0.05, -1.35, -2.85];
   for (const s of [-1, 1]) {
-    for (let seg = 0; seg < 5; seg++) {
-      const z0 = -1.9 + seg * 0.8, z1 = z0 + 0.8;
+    for (let seg = 0; seg < posts.length - 1; seg++) {
+      const z0 = posts[seg + 1] + 0.06, z1 = posts[seg] - 0.06;
       for (let k = 0; k <= 8; k++) {
         const t = k / 8;
         const zz = lerp(z0, z1, t);
-        const p = new THREE.Vector3(s * (hb(zz) + 0.04), yg(zz) + 0.02 - Math.sin(Math.PI * t) * 0.22, zz);
+        const p = new THREE.Vector3(s * (hb(zz) + 0.04), yg(zz) + 0.02 - Math.sin(Math.PI * t) * 0.2, zz);
         fl.push({ p, n: new THREE.Vector3(s, 0.2, 0).normalize(), kind: 0 });
       }
     }
@@ -167,12 +168,12 @@ function boatGarlands(world, group, r, withPapel = true) {
   toParent(world, flowerCards(world, fl, 'f_cempa', 0, 0.15), group);
   toParent(world, flowerCards(world, mag, 'f_buga', 0, 0.16), group);
   if (withPapel) {
-    const top = yg(0) + 0.99;
-    const lines = [[new THREE.Vector3(0.35, top, 2.05), new THREE.Vector3(0.35, top, -1.85), 0.05], [new THREE.Vector3(-0.35, top, 2.05), new THREE.Vector3(-0.35, top, -1.85), 0.05], [new THREE.Vector3(0, cy + 1.0, z), new THREE.Vector3(0, 2.3, 5.0), 0.1]];
+    // papel picado hanging from the roof edges
+    const y = 1.78;
+    const lines = [[new THREE.Vector3(1.02, y, 2.7), new THREE.Vector3(1.02, y, -2.9), 0.06], [new THREE.Vector3(-1.02, y, 2.7), new THREE.Vector3(-1.02, y, -2.9), 0.06]];
     buildPapel(world, lines, group);
   }
 }
-
 export function mooredTrajineras(world) {
   const r = mulberry32(808);
   world.moored = [];
@@ -190,7 +191,7 @@ export function mooredTrajineras(world) {
     world.scene.add(root);
     ofrenda(world, g, r);
     root.updateMatrixWorld(true);
-    (world.ofrendaGlow = world.ofrendaGlow || []).push(new THREE.Vector3(0, 1.0, -3.2).applyMatrix4(g.matrixWorld));
+    (world.ofrendaGlow = world.ofrendaGlow || []).push(new THREE.Vector3(0, 1.0, -3.6).applyMatrix4(g.matrixWorld));
     boatGarlands(world, g, r, true);
     // mooring rope to a stake on the bank
     const stakeP = toWorld(u - 3, w + 1.5);
@@ -210,7 +211,7 @@ export function mooredTrajineras(world) {
     world.glowSources.push((list, cp) => {
       const n = world.tod.night * 0.95 + world.tod.dusk * 0.3;
       if (n < 0.02) return;
-      const c = new THREE.Vector3(0, 0.9, -3.3).applyMatrix4(g.matrixWorld);
+      const c = new THREE.Vector3(0, 0.9, -3.6).applyMatrix4(g.matrixWorld);
       list.push({ x: c.x, y: c.y, z: c.z, r: 8, cr: 1.8 * n, cg: 1.0 * n, cb: 0.4 * n, w: 10 / (1 + cp.distanceTo(c) * 0.08) });
     });
   }
@@ -221,21 +222,21 @@ export function decorateHeroBoat(world) {
   const r = mulberry32(909);
   const b = world.boat;
   boatGarlands(world, b.group, r, true);
+  // veladoras down the middle of the table
   const c = [];
-  for (let k = 0; k < 6; k++) c.push({ x: -0.45 + k * 0.18, y: 0.16, z: 3.3 + (k % 2) * 0.12, h: 0.1 + r() * 0.05 });
-  for (let k = 0; k < 3; k++) c.push({ x: -0.5 + k * 0.5, y: yg(1.6) - 0.1, z: 1.6, h: 0.09 });
+  for (let k = 0; k < 9; k++) c.push({ x: (k % 2 ? 0.13 : -0.13) + (r() - 0.5) * 0.04, y: 0.74, z: -2.3 + k * 0.5 + (r() - 0.5) * 0.1, h: 0.08 + r() * 0.06 });
   buildCandles(world, c, b.group);
-  // hanging tin lantern under the rear canopy hoop, lights the cargo and the boatman
+  // hanging tin lantern under the middle of the roof, lights the table
   const lm = std({ color: 0xb8b2a6, roughness: 0.35, metalness: 0.8, emissive: 0xffa04a, emissiveIntensity: 0 }, { key: 'heroLan' });
   const lg = new THREE.Group();
-  const y0 = yg(-1.9) + 0.95 - 0.42;
+  const y0 = 1.62;
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.17, 10), lm); body.position.y = 0;
   const cap = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.08, 10), lm); cap.position.y = 0.125;
-  const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.24, 4), std({ color: 0x222222, roughness: 0.6 }, { key: 'wire' })); wire.position.y = 0.28;
+  const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.5, 4), std({ color: 0x222222, roughness: 0.6 }, { key: 'wire' })); wire.position.y = 0.4;
   lg.add(body, cap, wire);
-  lg.position.set(0, y0, -1.9);
+  lg.position.set(0, y0, -0.6);
   b.group.add(lg);
-  buildCandles(world, [{ x: 0, y: y0 - 0.08, z: -1.9, h: 0.07 }], b.group);
+  buildCandles(world, [{ x: 0, y: y0 - 0.08, z: -0.6, h: 0.07 }], b.group);
   const lp = new THREE.Vector3();
   world.updaters.push(() => { const n = world.tod.night * 0.95 + world.tod.dusk * 0.4; lm.emissiveIntensity = n * 2.2; });
   world.glowSources.push((list) => {
