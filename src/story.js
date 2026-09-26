@@ -445,11 +445,9 @@ export class Story {
     this.petals = new ThrownPetals(world);
     this.smokeSrc = null;
     this.slow = 1;
-    this.attn = { p: V3(), k: 0 };
-    this.cur = null; this.gap = 0;
+    this.slowT = 0;
     this.velT = 4;
     this.auto = true; // tools that direct the scenes themselves turn this off
-    world.attn = this.attn;
     world.onLoop = () => this.reset();
     world.glowSources.push(this.glowSource());
     world.updaters.push((dt, t) => this.update(dt, t));
@@ -460,13 +458,14 @@ export class Story {
     for (const s of steps) { try { s(); } catch (e) { console.warn('story', e); } await nextFrame(); }
     this.ready = true;
   }
-  // a scene: p = where the camera looks, win = [near, far] metres ahead of the trajinera in which it plays,
-  // hold = how long the camera stays on it, fn = what happens
+  // a scene: p = where it happens, win = [near, far] metres ahead of the trajinera in which it starts,
+  // hold = roughly how long it lasts (the trajinera goes slower meanwhile), fn = what happens.
+  // The camera never moves by itself: the visitor decides where to look.
   addHot(h) { h.win = h.win || [5, 22]; h.hold = h.hold || 3.4; h.played = false; this.hot.push(h); return h; }
-  play(h, glance = true) {
+  play(h) {
     h.played = true;
     h.fn();
-    if (glance) { this.cur = { h, t: 0 }; this.attn.p.copy(h.p); }
+    this.slowT = Math.max(this.slowT, h.hold + 1.5);
   }
 
   // Act I — an ofrenda by the water, its candles still unlit
@@ -781,7 +780,7 @@ export class Story {
     for (const v of this.vign) v.reset && v.reset();
     this.comp.clear(); this.vel.clear();
     for (const h of this.hot) h.played = false;
-    this.cur = null; this.gap = 0; this.attn.k = 0; this.velT = 4;
+    this.slowT = 0; this.velT = 4;
   }
   // the trajinero leaves a veladora beside the hull, alternating sides; an ánima is born from it
   dropVeladora() {
@@ -801,40 +800,27 @@ export class Story {
     this.vel.update(dt, t);
     this.sparks.update(dt);
     this.petals.update(dt);
-    if (!this.ready || !this.auto) { this.attn.k = 0; w.slow = 1; return; }
-    // the scene being watched: the camera turns to it, stays, and comes back
+    if (!this.ready || !this.auto) { w.slow = 1; return; }
+    // scenes start by themselves when the trajinera reaches them; it goes slower while they happen
     let want = 1;
-    if (this.cur) {
-      const c = this.cur, hold = c.h.hold;
-      c.t += dt;
-      this.attn.k = ease(clamp(c.t / 1.3, 0, 1)) * (1 - ease(clamp((c.t - hold) / 1.8, 0, 1)));
-      want = 0.55;
-      if (c.t > hold + 1.8) { this.cur = null; this.gap = 0.8; this.attn.k = 0; }
-    } else {
-      this.attn.k = 0;
-      this.gap = Math.max(0, this.gap - dt);
-    }
-    // scenes play by themselves when the trajinera reaches them, one at a time
     for (const h of this.hot) {
       if (h.played) continue;
       const du = h.u - b.u;
       if (du < -40 || du > 90) continue;
       const rx = h.p.x - b.pos.x, rz = h.p.z - b.pos.z;
       const along = rx * b.fwd.x + rz * b.fwd.z;
-      if (along >= h.win[0] && along <= h.win[1]) {
-        if (!this.cur && this.gap <= 0) this.play(h);
-        else want = Math.min(want, 0.6);
-      } else if (along < h.win[0]) {
-        // passed while another scene had the camera: it still happens, just without the look
-        if (along > h.win[0] - 8) this.play(h, false); else h.played = true;
-      } else if (along < h.win[1] + 14) want = Math.min(want, 0.7);
+      if (along >= h.win[0] && along <= h.win[1]) this.play(h);
+      else if (along < h.win[0]) h.played = true;
+      else if (along < h.win[1] + 14) want = Math.min(want, 0.7);
     }
+    this.slowT = Math.max(0, this.slowT - dt);
+    if (this.slowT > 0) want = Math.min(want, 0.6);
     this.slow = lerp(this.slow, want, 1 - Math.exp(-dt * 0.8));
     w.slow = this.slow;
     // veladoras through the night
     if (w.tod.night > 0.6 && !w.looping) {
       this.velT -= dt;
-      if (this.velT <= 0 && !this.cur) this.velT = this.dropVeladora() ? 9 + Math.random() * 5 : 1;
+      if (this.velT <= 0) this.velT = this.dropVeladora() ? 9 + Math.random() * 5 : 1;
     } else this.velT = Math.min(this.velT, 3);
   }
   glowSource() {

@@ -1,5 +1,5 @@
 // Story layer check: boots the standalone build, lets the trajinera reach each bank scene on its own and checks that
-// the scene plays by itself, the camera turns to it and comes back; then a stretch of night for the veladoras.
+// the scene plays by itself (the camera is left alone); then a stretch of night for the veladoras.
 // usage: node tools/storytest.mjs [only-scene-name]      (frames written to shots/story/)
 import { chromium } from 'playwright';
 import fs from 'fs';
@@ -27,7 +27,7 @@ const frames = (n, dt = 1 / 30) => page.evaluate(([n, dt]) => {
     w.time += dt; w.tod.update(dt, false); w.boat.update(dt, w.input, w.time); w.animateVillagers(dt, w.time); w.animateBells(dt); w.loopCheck(dt);
     if (!w.debugCam) w.chase.update(dt, w.time);
     for (const u of w.updaters) u(dt, w.time);
-    if (i % 15 === 0) out.push([+w.time.toFixed(1), Math.round(w.boat.u), +s.attn.k.toFixed(2), +w.slow.toFixed(2), s.cur ? s.hot.indexOf(s.cur.h) : -1]);
+    if (i % 15 === 0) out.push([+w.time.toFixed(1), Math.round(w.boat.u), +w.slow.toFixed(2), s.hot.filter((h) => h.played).length]);
   }
   return out;
 }, [n, dt]);
@@ -47,17 +47,16 @@ for (const sc of scenes) {
     s.reset(); for (const q of s.hot) q.played = q !== h;
     w.debugCam = false; w.tod.phase = sc.t; w.boat.reset(h.u - (sc.back || 60)); w.chase.snap();
   }, sc);
-  let trace = [], peak = null, done = false;
-  for (let chunk = 0; chunk < 40 && !done; chunk++) {
-    const tr = await frames(30);
-    trace = trace.concat(tr);
-    const st = await page.evaluate((k) => { const s = window.__rio.story; return { played: s.hot[k].played, cur: !!s.cur, k: s.attn.k }; }, sc.k);
-    if (st.played && st.k > 0.95 && !peak) { await draw(); await shot('auto_' + sc.name); peak = true; }
-    if (st.played && !st.cur) done = true;
+  let trace = [], playedAt = null;
+  for (let chunk = 0; chunk < 40; chunk++) {
+    trace = trace.concat(await frames(30));
+    const st = await page.evaluate((k) => { const w = window.__rio; return { played: w.story.hot[k].played, u: Math.round(w.boat.u), t: +w.time.toFixed(1) }; }, sc.k);
+    if (st.played && !playedAt) playedAt = st;
+    if (playedAt && st.t - playedAt.t > 6) break;
   }
   const comp = await page.evaluate(() => window.__rio.story.comp.items.filter((q) => q.mode).length);
-  const on = trace.filter((r) => r[4] === sc.k);
-  console.log(sc.name.padEnd(9), done ? 'played' : 'NOT PLAYED', 'look', on.length ? `${on[0][0]}s→${on[on.length - 1][0]}s u ${on[0][1]}→${on[on.length - 1][1]} maxk ${Math.max(...on.map((r) => r[2]))} slow ${Math.min(...trace.map((r) => r[3]))}` : '-', 'companions', comp);
+  const cam = await page.evaluate(() => { const w = window.__rio; return +w.cam.fov.toFixed(1); });
+  console.log(sc.name.padEnd(9), playedAt ? `played at u ${playedAt.u} (scene u ${Math.round(await page.evaluate((k) => window.__rio.story.hot[k].u, sc.k))})` : 'NOT PLAYED', 'min slow', Math.min(...trace.map((r) => r[2])), 'fov', cam, 'companions', comp);
 }
 // night: the trajinero leaves veladoras and ánimas are born from them
 if (!only.length || only.includes('noche')) {

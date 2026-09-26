@@ -10,7 +10,6 @@ export class ChaseCam {
     this.yaw = 0; this.pitch = 0.26; this.dist = 11.5;
     this.userYaw = 0; this.userPitch = 0; this.userDist = 0;
     this.lastDrag = -99;
-    this.fov0 = this.cam.fov;
     this.pos = new THREE.Vector3();
     this.tgt = new THREE.Vector3();
     this.vel = new THREE.Vector3();
@@ -44,21 +43,9 @@ export class ChaseCam {
       const k = 1 - Math.exp(-dt * 0.35);
       this.userYaw = lerp(this.userYaw, 0, k); this.userPitch = lerp(this.userPitch, 0, k); this.userDist = lerp(this.userDist, 0, k);
     }
-    // a story scene playing on the bank: the camera turns its head toward it (a little orbit, mostly gaze) and
-    // zooms in if it is far, then comes back to the trajinera. The visitor's own dragging always wins.
-    const at = this.w.attn;
-    let gYaw = 0, gk = 0;
-    if (at && at.k > 0.001) {
-      gk = at.k * clamp((idle - 1.2) / 1.2, 0, 1);
-      const da = Math.atan2(at.p.x - boat.pos.x, at.p.z - boat.pos.z) - Math.atan2(boat.fwd.x, boat.fwd.z);
-      gYaw = clamp(Math.atan2(Math.sin(da), Math.cos(da)) * 0.35, -0.55, 0.55) * gk;
-    }
-    const yaw = dYaw * (1 - gk) + this.userYaw + gYaw, pitch = clamp(dPitch + this.userPitch, 0.04, 1.2), dist = clamp(dDist + this.userDist - gk, 4.5, 34);
+    const yaw = dYaw + this.userYaw, pitch = clamp(dPitch + this.userPitch, 0.04, 1.2), dist = clamp(dDist + this.userDist, 4.5, 34);
     const tgt = new THREE.Vector3().copy(boat.pos).addScaledVector(boat.fwd, 1.2);
     tgt.y = 1.9;
-    if (gk > 0.001) tgt.lerp(at.p, 0.72 * gk);
-    const fov = gk > 0.001 ? lerp(this.fov0, clamp(this.fov0 * 14 / Math.max(1, this.pos.distanceTo(at.p)), 26, this.fov0), gk) : this.fov0;
-    if (Math.abs(this.cam.fov - fov) > 0.01) { this.cam.fov = fov; this.cam.updateProjectionMatrix(); }
     const back = boat.fwd.clone().negate().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     const P = tgt.clone().addScaledVector(back, dist * Math.cos(pitch));
     P.y = tgt.y + dist * Math.sin(pitch) + 0.9;
